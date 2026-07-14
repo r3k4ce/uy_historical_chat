@@ -7,18 +7,11 @@ vi.mock("./api/chat", () => ({ streamChat: vi.fn() }));
 test("renders the Artigas conversation page instead of backend health", () => {
   render(<App />);
 
+  expect(screen.getByRole("heading", { name: "Artigas" })).toBeInTheDocument();
+  expect(screen.getByText("Conversación histórica")).toBeInTheDocument();
   expect(
-    screen.getByRole("heading", { name: "Conversar con José Artigas" }),
+    screen.getByRole("heading", { name: "¿Qué le gustaría conversar?" }),
   ).toBeInTheDocument();
-  expect(
-    screen.getByText(
-      /Explore las ideas políticas de Artigas y su contexto histórico/i,
-    ),
-  ).toBeInTheDocument();
-  expect(
-    screen.getByText(
-      "Simulación histórica basada en fuentes documentales. No representa al personaje real.",
-    ),
-  ).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Información" })).toBeInTheDocument();
   expect(screen.queryByText(/Backend:/)).not.toBeInTheDocument();
 });

@@ -31,19 +31,30 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-test("renders collapsed source cards with titles and optional pages", () => {
+test("keeps the source tray collapsed until manually expanded", () => {
   render(<CitationCards messageId={8} citations={citations} navigation={null} />);
 
+  const tray = screen.getByRole("button", { name: "Mostrar 2 fuentes" });
+  expect(tray).toHaveTextContent("Fuentes · 2");
+  expect(tray).toHaveAttribute("aria-expanded", "false");
+  expect(screen.queryByText("artigas-documentos.pdf")).not.toBeInTheDocument();
+
+  fireEvent.click(tray);
+
+  expect(tray).toHaveAttribute("aria-expanded", "true");
   expect(screen.getByText("artigas-documentos.pdf")).toBeInTheDocument();
   expect(screen.getByText("Página 4")).toBeInTheDocument();
   expect(screen.getByText("otra-fuente.pdf")).toBeInTheDocument();
   expect(screen.getAllByText(/Página/)).toHaveLength(1);
   expect(screen.queryByText("Afirmación respaldada")).not.toBeInTheDocument();
-  expect(screen.getAllByRole("button")[0]).toHaveAttribute("aria-expanded", "false");
+  expect(
+    screen.getByRole("button", { name: "Fuente 1: artigas-documentos.pdf" }),
+  ).toHaveAttribute("aria-expanded", "false");
 });
 
 test("expands and collapses the exact supported assertion", () => {
   render(<CitationCards messageId={8} citations={citations} navigation={null} />);
+  fireEvent.click(screen.getByRole("button", { name: "Mostrar 2 fuentes" }));
   const toggle = screen.getByRole("button", {
     name: "Fuente 1: artigas-documentos.pdf",
   });
@@ -73,6 +84,10 @@ test("marker navigation expands, scrolls, focuses, highlights, and clears highli
     />,
   );
 
+  expect(screen.getByRole("button", { name: "Ocultar 2 fuentes" })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
   const card = screen.getByTestId("citation-card-2");
   expect(screen.getByText("La libertad civil y religiosa.")).toBeInTheDocument();
   expect(card).toHaveFocus();

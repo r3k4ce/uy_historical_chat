@@ -34,3 +34,13 @@ entries:
     verification:
       - "./scripts/check.sh: passed; backend 105 tests at 89.73% coverage, frontend 35 tests, typecheck, lint, and build."
       - "Live Gemini eval evals/results/20260714T132455Z.json: 15 completed, 0 operational errors, 0 missing required citations, 14 met committed expectations, 1 quotation case conflicts with the active corpus."
+  - time_utc: "2026-07-14T16:19:46Z"
+    time_local: "2026-07-14T13:19:46-03:00"
+    summary: "Overhauled the Artigas chat as a responsive digital-museum conversation shell."
+    changed:
+      - "Added the focused full-height chat layout, responsive header, museum welcome state, auto-growing keyboard-aware composer, streaming indicator, copy feedback, and guarded auto-scroll."
+      - "Added collapsed source trays with citation navigation, an accessible information dialog, and a local optimized public-domain Blanes portrait with provenance documentation."
+    verification:
+      - "./scripts/check.sh: passed; backend 105 tests at 89.43% coverage, frontend 45 tests at 94.42% statement coverage, typecheck, lint, and build."
+      - ".\\scripts\\check.ps1: skipped because PowerShell (pwsh) is unavailable in this Linux environment."
+      - "Responsive browser screenshots and live Gemini smoke: skipped because no browser automation runtime or provider credentials are available in this environment."

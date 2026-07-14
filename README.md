@@ -4,6 +4,14 @@ Aplicación educativa de una sola página para conversar en español con una sim
 
 > **Advertencia sobre el corpus:** `data/artigas-dev-corpus.pdf` es un documento sintético creado exclusivamente para desarrollo. No constituye una fuente histórica y debe reemplazarse por un corpus revisado por especialistas antes de cualquier publicación o uso público.
 
+## Experiencia de conversación
+
+La interfaz presenta una conversación enfocada, sin historial persistente ni barra lateral. Puede elegir una pregunta inicial o escribir la suya. `Enter` envía el mensaje y `Shift+Enter` agrega una nueva línea; durante una composición con IME, `Enter` no envía prematuramente. El compositor admite hasta 2.000 caracteres y muestra el contador desde los 1.800.
+
+Cada respuesta terminada puede copiarse con la acción **Copiar**. Cuando hay citas, la bandeja **Fuentes · N** comienza cerrada: al expandirla muestra las fuentes y permite desplegar la afirmación respaldada. Los marcadores `[N]` dentro de una respuesta abren directamente la bandeja y enfocan la fuente correspondiente.
+
+El retrato usado en la cabecera, la bienvenida y los mensajes es *Artigas en la puerta de la Ciudadela*, de Juan Manuel Blanes, ca. 1884, colección del Museo Histórico Nacional de Uruguay. La imagen fue provista por el museo y se distribuye como reproducción de dominio público; se conserva localmente como WebP optimizado, sin hotlinking. Es una representación artística posterior y no un retrato realizado en vida de Artigas. Consulte la [ficha y condiciones de reutilización en Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Juan_Manuel_Blanes_-_Artigas_en_la_Ciudadela.jpg).
+
 ## Requisitos
 
 - Python 3.12.

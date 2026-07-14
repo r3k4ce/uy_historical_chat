@@ -1,4 +1,11 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import type { Citation } from "../types";
 import Message from "./Message";
@@ -59,6 +66,9 @@ test("applies only the controlled assistant formatting", () => {
   expect(container.querySelectorAll("li")).toHaveLength(2);
   expect(screen.getByText("<script>nunca</script>")).toBeInTheDocument();
   expect(container.querySelector("script")).toBeNull();
+  expect(
+    screen.getByRole("img", { name: "Retrato de José Artigas" }),
+  ).toBeInTheDocument();
 });
 
 test("does not show citation markers while an answer is streaming", () => {
@@ -136,7 +146,60 @@ test("keeps marker navigation isolated between assistant answers", () => {
 
   fireEvent.click(screen.getAllByRole("button", { name: /Ver fuente 1/ })[0]);
 
-  const cards = screen.getAllByTestId("citation-card-1");
-  expect(within(cards[0]).getByText("texto respaldado")).toBeInTheDocument();
-  expect(within(cards[1]).queryByText("texto respaldado")).not.toBeInTheDocument();
+  const card = screen.getByTestId("citation-card-1");
+  expect(within(card).getByText("texto respaldado")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Mostrar 1 fuente" })).toHaveAttribute(
+    "aria-expanded",
+    "false",
+  );
+});
+
+test("copies a completed assistant response and shows temporary confirmation", async () => {
+  vi.useFakeTimers();
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText },
+  });
+  render(
+    <Message
+      messageId={30}
+      role="assistant"
+      text="Respuesta para copiar"
+      complete
+      citations={[]}
+    />,
+  );
+
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Copiar respuesta" }));
+    await Promise.resolve();
+  });
+  expect(writeText).toHaveBeenCalledWith("Respuesta para copiar");
+  expect(screen.getByText("Copiado")).toBeInTheDocument();
+  act(() => vi.advanceTimersByTime(2000));
+  expect(screen.queryByText("Copiado")).not.toBeInTheDocument();
+});
+
+test("announces clipboard failure without replacing the response", async () => {
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
+  });
+  render(
+    <Message
+      messageId={31}
+      role="assistant"
+      text="Respuesta intacta"
+      complete
+      citations={[]}
+    />,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Copiar respuesta" }));
+
+  expect(
+    await screen.findByText("No se pudo copiar la respuesta."),
+  ).toHaveAttribute("role", "status");
+  expect(screen.getByText("Respuesta intacta")).toBeInTheDocument();
 });

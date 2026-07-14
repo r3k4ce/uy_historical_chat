@@ -73,6 +73,58 @@ afterEach(() => {
 });
 
 describe("ChatPage", () => {
+  test("shows the museum welcome state only before the first submission", async () => {
+    render(<ChatPage />);
+
+    expect(
+      screen.getByRole("heading", { name: "¿Qué le gustaría conversar?" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Conversación histórica")).toBeInTheDocument();
+
+    submit("¿Qué defendía?");
+
+    await waitFor(() => expect(streamChatMock).toHaveBeenCalledOnce());
+    expect(
+      screen.queryByRole("heading", { name: "¿Qué le gustaría conversar?" }),
+    ).not.toBeInTheDocument();
+  });
+
+  test("opens an accessible information dialog and restores focus on close", async () => {
+    render(<ChatPage />);
+    const trigger = screen.getByRole("button", { name: "Información" });
+
+    fireEvent.click(trigger);
+
+    const dialog = screen.getByRole("dialog", { name: "Acerca de esta experiencia" });
+    expect(dialog).toHaveTextContent("simulación histórica");
+    expect(dialog).toHaveTextContent("corpus de desarrollo es sintético");
+    expect(screen.getByRole("button", { name: "Cerrar información" })).toHaveFocus();
+
+    fireEvent.keyDown(dialog, { key: "Escape" });
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() => expect(trigger).toHaveFocus());
+
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar información" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
+  test("resets an idle draft immediately and preserves the page landmarks", async () => {
+    render(<ChatPage />);
+    const textarea = screen.getByLabelText("Pregunta para José Artigas");
+    fireEvent.change(textarea, { target: { value: "Borrador sin enviar" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Nueva conversación" }));
+
+    expect(textarea).toHaveValue("");
+    await waitFor(() => expect(textarea).toHaveFocus());
+    expect(screen.getByRole("main")).toBeInTheDocument();
+    expect(screen.getByRole("banner")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Conversación" })).toBeInTheDocument();
+  });
+
   test("renders the exact controls and suggested questions", () => {
     render(<ChatPage />);
 
@@ -136,6 +188,55 @@ describe("ChatPage", () => {
     );
   });
 
+  test("replaces the three-dot waiting indicator with the first streamed text", () => {
+    let activeCallbacks!: Parameters<typeof streamChat>[1];
+    streamChatMock.mockImplementation((_request, callbacks) => {
+      activeCallbacks = callbacks;
+      return new Promise<void>(() => undefined);
+    });
+    render(<ChatPage />);
+
+    submit("Pregunta pendiente");
+
+    expect(screen.getByLabelText("Artigas está escribiendo")).toBeInTheDocument();
+    act(() => activeCallbacks.onText("Comienza la respuesta"));
+    expect(
+      screen.queryByLabelText("Artigas está escribiendo"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Comienza la respuesta")).toBeInTheDocument();
+  });
+
+  test("follows streaming output only while the reader remains near the bottom", async () => {
+    let activeCallbacks!: Parameters<typeof streamChat>[1];
+    streamChatMock.mockImplementation((_request, callbacks) => {
+      activeCallbacks = callbacks;
+      return new Promise<void>(() => undefined);
+    });
+    Element.prototype.scrollIntoView = vi.fn();
+    render(<ChatPage />);
+    const viewport = screen.getByTestId("chat-scroll");
+    Object.defineProperties(viewport, {
+      scrollHeight: { configurable: true, value: 1000 },
+      clientHeight: { configurable: true, value: 400 },
+      scrollTop: { configurable: true, writable: true, value: 100 },
+    });
+
+    submit("Pregunta extensa");
+    await waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalled());
+    vi.mocked(Element.prototype.scrollIntoView).mockClear();
+    fireEvent.scroll(viewport);
+    act(() => activeCallbacks.onText("Primer tramo"));
+
+    await act(async () => Promise.resolve());
+    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+
+    viewport.scrollTop = 550;
+    fireEvent.scroll(viewport);
+    act(() => activeCallbacks.onText(" y continuación"));
+
+    await waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalled());
+  });
+
   test("submits a suggested question", async () => {
     render(<ChatPage />);
 
@@ -159,13 +260,15 @@ describe("ChatPage", () => {
 
     expect(screen.getByLabelText("Pregunta para José Artigas")).toBeDisabled();
     expect(screen.getByRole("button", { name: "Enviar" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: suggestions[0] })).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: suggestions[0] }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Nueva conversación" }),
     ).toBeEnabled();
-    expect(screen.getByText("Preparando una respuesta…")).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Preparando una respuesta…",
+    expect(screen.getByLabelText("Artigas está escribiendo")).toHaveAttribute(
+      "role",
+      "status",
     );
 
     await act(async () => resolveRequest());
@@ -184,6 +287,51 @@ describe("ChatPage", () => {
 
     await waitFor(() => expect(streamChatMock).toHaveBeenCalledOnce());
     expect(streamChatMock.mock.calls[0][0].message).toHaveLength(2000);
+  });
+
+  test("sends with Enter and keeps Shift+Enter as a newline", async () => {
+    render(<ChatPage />);
+    const textarea = screen.getByLabelText("Pregunta para José Artigas");
+
+    fireEvent.change(textarea, { target: { value: "Primera línea" } });
+    fireEvent.keyDown(textarea, { key: "Enter", shiftKey: true });
+    expect(streamChatMock).not.toHaveBeenCalled();
+
+    fireEvent.change(textarea, { target: { value: "Primera línea\nSegunda" } });
+    fireEvent.keyDown(textarea, { key: "Enter" });
+
+    await waitFor(() => expect(streamChatMock).toHaveBeenCalledOnce());
+    expect(streamChatMock.mock.calls[0][0].message).toBe(
+      "Primera línea\nSegunda",
+    );
+  });
+
+  test("does not submit Enter while an IME composition is active", () => {
+    render(<ChatPage />);
+    const textarea = screen.getByLabelText("Pregunta para José Artigas");
+
+    fireEvent.change(textarea, { target: { value: "texto compuesto" } });
+    fireEvent.compositionStart(textarea);
+    fireEvent.keyDown(textarea, { key: "Enter", isComposing: true });
+    fireEvent.compositionEnd(textarea);
+
+    expect(streamChatMock).not.toHaveBeenCalled();
+  });
+
+  test("auto-grows the composer up to its fixed maximum", () => {
+    render(<ChatPage />);
+    const textarea = screen.getByLabelText(
+      "Pregunta para José Artigas",
+    ) as HTMLTextAreaElement;
+    Object.defineProperty(textarea, "scrollHeight", {
+      configurable: true,
+      value: 240,
+    });
+
+    fireEvent.change(textarea, { target: { value: "línea\n".repeat(8) } });
+
+    expect(textarea.style.height).toBe("160px");
+    expect(textarea.style.overflowY).toBe("auto");
   });
 
   test("prevents an overlength submission", () => {
@@ -350,6 +498,7 @@ describe("ChatPage", () => {
     expect(
       await screen.findByRole("button", { name: "Ver fuente 1: artigas.pdf" }),
     ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Mostrar 1 fuente" }));
     expect(screen.getByText("artigas.pdf")).toBeInTheDocument();
   });
 });

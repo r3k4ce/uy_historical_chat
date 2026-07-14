@@ -1,4 +1,4 @@
-import { Fragment, ReactNode, useState } from "react";
+import { Fragment, ReactNode, useEffect, useRef, useState } from "react";
 import type { Citation } from "../types";
 import CitationCards, { type CitationNavigation } from "./CitationCards";
 
@@ -183,7 +183,18 @@ export default function Message({
   citations,
 }: MessageProps) {
   const [navigation, setNavigation] = useState<CitationNavigation | null>(null);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">(
+    "idle",
+  );
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const visibleCitations = role === "assistant" && complete ? citations : [];
+
+  useEffect(
+    () => () => {
+      if (copyTimer.current !== null) clearTimeout(copyTimer.current);
+    },
+    [],
+  );
 
   function activateCitation(citation: Citation) {
     setNavigation((current) => ({
@@ -192,18 +203,80 @@ export default function Message({
     }));
   }
 
+  async function copyResponse() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyStatus("copied");
+      copyTimer.current = setTimeout(() => {
+        setCopyStatus("idle");
+        copyTimer.current = null;
+      }, 2000);
+    } catch {
+      setCopyStatus("failed");
+    }
+  }
+
   return (
     <article className={`message message-${role}`}>
-      <div className="message-label">
-        {role === "user" ? "Usted" : "José Artigas (simulación)"}
-      </div>
+      {role === "assistant" ? (
+        <div className="message-identity">
+          <img
+            src="/artigas-blanes.webp"
+            alt="Retrato de José Artigas"
+            className="message-portrait"
+          />
+          <div className="message-label">
+            <span>Artigas</span>
+            <small>Simulación histórica</small>
+          </div>
+        </div>
+      ) : (
+        <div className="message-label sr-only">Usted</div>
+      )}
       {role === "user" ? (
         <p>{text}</p>
       ) : (
         <div className="message-content">
-          {formatBlocks(
-            insertMarkers(text, visibleCitations),
-            activateCitation,
+          {!complete && !text ? (
+            <span
+              className="typing-indicator"
+              role="status"
+              aria-label="Artigas está escribiendo"
+            >
+              <span aria-hidden="true" />
+              <span aria-hidden="true" />
+              <span aria-hidden="true" />
+            </span>
+          ) : (
+            formatBlocks(
+              insertMarkers(text, visibleCitations),
+              activateCitation,
+            )
+          )}
+        </div>
+      )}
+      {role === "assistant" && complete && text && (
+        <div className="message-actions">
+          <button
+            type="button"
+            className="copy-button"
+            aria-label="Copiar respuesta"
+            onClick={() => void copyResponse()}
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+              <path
+                d="M9 8h10v11H9zM5 5h10v3M5 5v11h4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              />
+            </svg>
+            <span>{copyStatus === "copied" ? "Copiado" : "Copiar"}</span>
+          </button>
+          {copyStatus === "failed" && (
+            <span className="copy-status" role="status" aria-live="polite">
+              No se pudo copiar la respuesta.
+            </span>
           )}
         </div>
       )}

@@ -1,7 +1,10 @@
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChatApiError, streamChat } from "../api/chat";
 import type { ChatError, Citation } from "../types";
+import ChatHeader from "./ChatHeader";
+import Composer from "./Composer";
 import Message from "./Message";
+import WelcomeState from "./WelcomeState";
 
 const MAX_MESSAGE_LENGTH = 2000;
 const MAX_TURNS = 12;
@@ -58,6 +61,9 @@ export default function ChatPage() {
   const lastAttempt = useRef<Attempt | null>(null);
   const textarea = useRef<HTMLTextAreaElement | null>(null);
   const restoreFocus = useRef(false);
+  const scrollViewport = useRef<HTMLDivElement | null>(null);
+  const conversationEnd = useRef<HTMLDivElement | null>(null);
+  const followOutput = useRef(true);
 
   useEffect(() => {
     if (!loading && restoreFocus.current) {
@@ -73,6 +79,12 @@ export default function ChatPage() {
     },
     [],
   );
+
+  useEffect(() => {
+    if (messages.length > 0 && followOutput.current) {
+      conversationEnd.current?.scrollIntoView?.({ block: "end" });
+    }
+  }, [messages]);
 
   function requestTextareaFocus(requestGeneration: number) {
     restoreFocus.current = true;
@@ -192,6 +204,7 @@ export default function ChatPage() {
       previousInteractionId,
       assistantId,
     };
+    followOutput.current = true;
     setMessages((current) => [
       ...current,
       { id: userId, role: "user", text: message, complete: true, citations: [] },
@@ -206,11 +219,6 @@ export default function ChatPage() {
     setTurnCount(turnNumber);
     setDraft("");
     void runAttempt(attempt, false);
-  }
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    submitQuestion(draft);
   }
 
   function resetConversation() {
@@ -234,93 +242,61 @@ export default function ChatPage() {
 
   return (
     <main className="chat-page">
-      <header className="page-header">
-        <p className="eyebrow">Archivo histórico conversacional</p>
-        <h1>Conversar con José Artigas</h1>
-        <p className="introduction">
-          Explore las ideas políticas de Artigas y su contexto histórico mediante
-          una conversación fundamentada en documentos.
-        </p>
-        <p className="simulation-notice">
-          Simulación histórica basada en fuentes documentales. No representa al
-          personaje real.
-        </p>
-      </header>
-
-      <section className="suggestions" aria-labelledby="suggestions-title">
-        <h2 id="suggestions-title">Preguntas para comenzar</h2>
-        <div className="suggestion-list">
-          {suggestedQuestions.map((question) => (
-            <button
-              key={question}
-              type="button"
-              disabled={loading}
-              onClick={() => submitQuestion(question)}
-            >
-              {question}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="conversation" aria-label="Conversación">
-        {messages.map((message) => (
-          <Message
-            key={message.id}
-            messageId={message.id}
-            role={message.role}
-            text={message.text}
-            complete={message.complete}
-            citations={message.citations}
+      <ChatHeader onReset={resetConversation} />
+      <div
+        ref={scrollViewport}
+        className="chat-scroll"
+        data-testid="chat-scroll"
+        onScroll={() => {
+          const viewport = scrollViewport.current;
+          if (!viewport) return;
+          followOutput.current =
+            viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= 96;
+        }}
+      >
+        {messages.length === 0 && (
+          <WelcomeState
+            questions={suggestedQuestions}
+            disabled={loading}
+            onSelect={submitQuestion}
           />
-        ))}
-      </section>
+        )}
 
-      {error && (
-        <div className="error-panel" role="alert">
-          <p>{error.message}</p>
-          {canRetry(error) && (
-            <button type="button" onClick={retry} disabled={loading}>
-              Reintentar
-            </button>
-          )}
-        </div>
-      )}
+        <section className="conversation" aria-label="Conversación">
+          {messages.map((message) => (
+            <Message
+              key={message.id}
+              messageId={message.id}
+              role={message.role}
+              text={message.text}
+              complete={message.complete}
+              citations={message.citations}
+            />
+          ))}
+          <div ref={conversationEnd} aria-hidden="true" />
+        </section>
 
-      {loading && (
-        <p className="loading-status" role="status" aria-live="polite" aria-atomic="true">
-          Preparando una respuesta…
-        </p>
-      )}
+        {error && (
+          <div className="error-panel" role="alert">
+            <p>{error.message}</p>
+            {canRetry(error) && (
+              <button type="button" onClick={retry} disabled={loading}>
+                Reintentar
+              </button>
+            )}
+          </div>
+        )}
 
-      <form className="composer" onSubmit={handleSubmit}>
-        <label htmlFor="artigas-question">Pregunta para José Artigas</label>
-        <textarea
-          id="artigas-question"
-          ref={textarea}
-          name="message"
-          autoComplete="off"
-          value={draft}
-          maxLength={MAX_MESSAGE_LENGTH}
-          disabled={loading}
-          placeholder="Escriba una pregunta para José Artigas…"
-          onChange={(event) => setDraft(event.target.value)}
-          rows={4}
-        />
-        <div className="composer-actions">
-          <span className="character-count" aria-live="polite">
-            {draft.length >= 1800
-              ? `${draft.length.toLocaleString("es-UY")}/2.000`
-              : ""}
-          </span>
-          <button type="submit" disabled={loading || !draft.trim()}>
-            Enviar
-          </button>
-          <button type="button" className="secondary" onClick={resetConversation}>
-            Nueva conversación
-          </button>
-        </div>
-      </form>
+      </div>
+
+      <Composer
+        draft={draft}
+        loading={loading}
+        maxLength={MAX_MESSAGE_LENGTH}
+        textareaRef={textarea}
+        onDraftChange={setDraft}
+        onSend={() => submitQuestion(draft)}
+      />
     </main>
   );
 }
