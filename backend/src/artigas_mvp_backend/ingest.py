@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, TextIO
 
-from dotenv import find_dotenv, load_dotenv
+from artigas_mvp_backend.config import load_backend_dotenv
 
 
 class IngestionError(Exception):
@@ -115,9 +115,7 @@ def main(
     parser.add_argument("pdf_path", type=Path)
     args = parser.parse_args(argv)
 
-    dotenv_path = find_dotenv(usecwd=True)
-    if dotenv_path:
-        load_dotenv(dotenv_path, override=False)
+    load_backend_dotenv()
 
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
     if not api_key:

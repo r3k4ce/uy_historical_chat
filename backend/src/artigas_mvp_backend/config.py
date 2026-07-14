@@ -1,10 +1,18 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Any, Literal, Self
 
-from dotenv import find_dotenv, load_dotenv
+from dotenv import load_dotenv
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
+
+BACKEND_ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
+
+
+def load_backend_dotenv() -> None:
+    """Load only backend/.env while preserving exported process variables."""
+    load_dotenv(BACKEND_ENV_PATH, override=False)
 
 
 class Settings(BaseModel):
@@ -33,9 +41,7 @@ class Settings(BaseModel):
 
     @classmethod
     def from_env(cls) -> Self:
-        dotenv_path = find_dotenv(usecwd=True)
-        if dotenv_path:
-            load_dotenv(dotenv_path, override=False)
+        load_backend_dotenv()
 
         environment_names = {
             "gemini_api_key": "GEMINI_API_KEY",

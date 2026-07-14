@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-pushd backend >/dev/null
-uv run ruff check . --fix
-uv run ruff format .
-uv run ruff check .
-uv run pyright
-uv run pytest
+root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
+"$root/scripts/ensure.sh"
+
+pushd "$root/backend" >/dev/null
+uv run --locked python -m ruff check . --fix
+uv run --locked python -m ruff format .
+uv run --locked python -m ruff check .
+uv run --locked python -m pyright
+uv run --locked python -m pytest
 popd >/dev/null
 
-pushd frontend >/dev/null
+pushd "$root/frontend" >/dev/null
 npm run test
 npm run typecheck
 npm run lint

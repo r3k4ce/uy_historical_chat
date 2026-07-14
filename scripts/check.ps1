@@ -3,6 +3,9 @@ $ErrorActionPreference = "Stop"
 $RepositoryRoot = Split-Path -Parent $PSScriptRoot
 $npmCommand = if (Get-Command npm.cmd -ErrorAction SilentlyContinue) { "npm.cmd" } else { "npm" }
 
+& (Join-Path $PSScriptRoot "ensure.ps1")
+if ($LASTEXITCODE -ne 0) { throw "ensure.ps1 failed with exit code $LASTEXITCODE." }
+
 function Invoke-Checked {
     param(
         [Parameter(Mandatory = $true)][string]$Command,
@@ -17,10 +20,10 @@ function Invoke-Checked {
 
 Push-Location (Join-Path $RepositoryRoot "backend")
 try {
-    Invoke-Checked "uv" @("run", "ruff", "format", "--check", ".")
-    Invoke-Checked "uv" @("run", "ruff", "check", ".")
-    Invoke-Checked "uv" @("run", "pyright")
-    Invoke-Checked "uv" @("run", "pytest")
+    Invoke-Checked "uv" @("run", "--locked", "python", "-m", "ruff", "format", "--check", ".")
+    Invoke-Checked "uv" @("run", "--locked", "python", "-m", "ruff", "check", ".")
+    Invoke-Checked "uv" @("run", "--locked", "python", "-m", "pyright")
+    Invoke-Checked "uv" @("run", "--locked", "python", "-m", "pytest")
 }
 finally {
     Pop-Location

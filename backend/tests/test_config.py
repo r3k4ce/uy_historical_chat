@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 import pytest
 from pydantic import SecretStr, ValidationError
 
-from artigas_mvp_backend.config import Settings
+from artigas_mvp_backend import config
+from artigas_mvp_backend.config import Settings, load_backend_dotenv
 
 
 def test_settings_defaults_allow_health_without_chat_configuration() -> None:
@@ -53,6 +57,38 @@ def test_settings_parse_environment_values(monkeypatch: pytest.MonkeyPatch) -> N
     assert settings.gemini_max_retries == 0
     assert settings.cost_warning_usd_per_request == 0.03
     assert settings.chat_configuration_error() is None
+
+
+def test_backend_dotenv_uses_only_the_explicit_backend_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    backend_env = tmp_path / "backend" / ".env"
+    backend_env.parent.mkdir()
+    backend_env.write_text("GEMINI_API_KEY=backend-key\n", encoding="utf-8")
+    (tmp_path / ".env").write_text("GEMINI_API_KEY=root-key\n", encoding="utf-8")
+    working_directory = tmp_path / "elsewhere"
+    working_directory.mkdir()
+    (working_directory / ".env").write_text("GEMINI_API_KEY=cwd-key\n", encoding="utf-8")
+    monkeypatch.chdir(working_directory)
+    monkeypatch.setattr(config, "BACKEND_ENV_PATH", backend_env)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+
+    load_backend_dotenv()
+
+    assert os.environ["GEMINI_API_KEY"] == "backend-key"
+
+
+def test_backend_dotenv_preserves_exported_process_values(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    backend_env = tmp_path / ".env"
+    backend_env.write_text("GEMINI_API_KEY=file-key\n", encoding="utf-8")
+    monkeypatch.setattr(config, "BACKEND_ENV_PATH", backend_env)
+    monkeypatch.setenv("GEMINI_API_KEY", "process-key")
+
+    load_backend_dotenv()
+
+    assert os.environ["GEMINI_API_KEY"] == "process-key"
 
 
 @pytest.mark.parametrize(

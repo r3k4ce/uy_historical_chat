@@ -3,7 +3,7 @@ repos:
     hooks:
       - id: project-check
         name: project check
-        entry: bash scripts/check.sh
+        entry: env ARTIGAS_SKIP_HOOK_INSTALL=1 bash scripts/check.sh
         language: system
         pass_filenames: false
-        stages: [pre-push]
+        stages: [pre-commit]

@@ -134,7 +134,11 @@ def test_main_requires_api_key_before_constructing_client(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     path = write_pdf(tmp_path / "artigas.pdf")
-    monkeypatch.setattr("artigas_mvp_backend.ingest.find_dotenv", lambda **_: "")
+    dotenv_calls: list[None] = []
+    monkeypatch.setattr(
+        "artigas_mvp_backend.ingest.load_backend_dotenv",
+        lambda: dotenv_calls.append(None),
+    )
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     calls: list[str] = []
     stderr = io.StringIO()
@@ -146,6 +150,7 @@ def test_main_requires_api_key_before_constructing_client(
     )
 
     assert result != 0
+    assert dotenv_calls == [None]
     assert calls == []
     assert "GEMINI_API_KEY" in stderr.getvalue()
 

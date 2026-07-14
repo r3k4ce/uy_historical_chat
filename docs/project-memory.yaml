@@ -44,3 +44,14 @@ entries:
       - "./scripts/check.sh: passed; backend 105 tests at 89.43% coverage, frontend 45 tests at 94.42% statement coverage, typecheck, lint, and build."
       - ".\\scripts\\check.ps1: skipped because PowerShell (pwsh) is unavailable in this Linux environment."
       - "Responsive browser screenshots and live Gemini smoke: skipped because no browser automation runtime or provider credentials are available in this environment."
+  - time_utc: "2026-07-14T21:36:46Z"
+    time_local: "2026-07-14T18:36:46-03:00"
+    summary: "Made backend and frontend peer projects with reliable root orchestration."
+    changed:
+      - "Moved dotenv, Python, uv, and virtualenv state under backend; added strict tool pins, direct runtime Pydantic, lock sentinels, move repair, and native ensure helpers."
+      - "Unified run, check, fix, pre-commit, and CI bootstrapping; hardened two-server shutdown and documented the repository workflow."
+    verification:
+      - "./scripts/check.sh: passed; backend 114 tests at 89.79% coverage, frontend 45 tests at 94.42% statement coverage, typecheck, lint, and build."
+      - "pre-commit run --all-files --hook-stage pre-commit: passed; production-only backend install/import smoke: passed."
+      - "scripts/run.sh smoke: backend health and Vite returned success, SIGINT exited 130, and no orphan processes remained."
+      - ".\\scripts\\check.ps1: skipped because PowerShell (pwsh) is unavailable; repository contract tests cover PowerShell parity."

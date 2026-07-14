@@ -15,8 +15,8 @@ El retrato usado en la cabecera, la bienvenida y los mensajes es *Artigas en la 
 ## Requisitos
 
 - Python 3.12.
-- [`uv`](https://docs.astral.sh/uv/).
-- Node.js y npm.
+- [`uv`](https://docs.astral.sh/uv/) 0.11.26.
+- Node.js 24 y npm 11.
 - Una clave de Gemini API con acceso a `gemini-3.5-flash`.
 - Un almacén de Gemini File Search que contenga el PDF seleccionado.
 
@@ -25,42 +25,24 @@ El retrato usado en la cabecera, la bienvenida y los mensajes es *Artigas en la 
 Desde la raíz del repositorio:
 
 ```powershell
-Push-Location backend
-try {
-    uv sync --dev --locked
-}
-finally {
-    Pop-Location
-}
-
-Push-Location frontend
-try {
-    npm ci
-}
-finally {
-    Pop-Location
-}
-
-Copy-Item .env.example .env
+.\scripts\ensure.ps1
+Copy-Item backend\.env.example backend\.env
 ```
 
-Complete solamente el archivo local `.env`. Está ignorado por Git; no copie claves ni identificadores reales a `.env.example`.
+Complete solamente `backend/.env`. Está ignorado por Git; no copie claves ni identificadores reales a `backend/.env.example`.
 
 En Linux o macOS:
 
 ```bash
-pushd backend >/dev/null
-uv sync --dev --locked
-popd >/dev/null
-pushd frontend >/dev/null
-npm ci
-popd >/dev/null
-cp .env.example .env
+./scripts/ensure.sh
+cp backend/.env.example backend/.env
 ```
+
+Los ayudantes validan las versiones, instalan dependencias bloqueadas cuando hace falta, reparan el entorno virtual después de mover el repositorio e instalan el hook de `pre-commit`. `check`, `fix` y `run` los ejecutan automáticamente.
 
 ## Configuración
 
-El backend carga el `.env` de la raíz sin sobrescribir variables ya definidas en el proceso. La salud del servicio funciona aunque falten las dos variables requeridas para conversar.
+El backend carga exclusivamente `backend/.env`, sin buscar archivos en la raíz ni en el directorio actual y sin sobrescribir variables ya definidas en el proceso. La salud del servicio funciona aunque falten las dos variables requeridas para conversar.
 
 | Variable | Valor predeterminado | Uso |
 | --- | --- | --- |
@@ -104,7 +86,7 @@ finally {
 }
 ```
 
-La herramienta imprime una línea `GEMINI_FILE_SEARCH_STORE=fileSearchStores/...`. Copie ese valor al `.env` local y reinicie el backend. La ingestión usa fragmentos de 400 tokens con 60 de solapamiento; nunca modifica `.env`, reemplaza un almacén existente ni borra un almacén ante un error.
+La herramienta imprime una línea `GEMINI_FILE_SEARCH_STORE=fileSearchStores/...`. Copie ese valor a `backend/.env` y reinicie el backend. La ingestión usa fragmentos de 400 tokens con 60 de solapamiento; nunca modifica `.env`, reemplaza un almacén existente ni borra un almacén ante un error.
 
 Equivalentes para Linux o macOS:
 
@@ -120,7 +102,7 @@ Para reemplazar el corpus antes de publicar:
 1. Reúna un PDF con fuentes históricas verificadas y permisos de uso adecuados.
 2. Revise su contenido, procedencia, OCR, paginación y cobertura con especialistas.
 3. Ejecute la ingestión sobre ese PDF; se creará un almacén nuevo.
-4. Actualice `GEMINI_FILE_SEARCH_STORE` en el `.env` local y reinicie el backend.
+4. Actualice `GEMINI_FILE_SEARCH_STORE` en `backend/.env` y reinicie el backend.
 5. Ejecute las evaluaciones manuales y valide citas, páginas y afirmaciones antes de retirar el almacén anterior por medios administrativos.
 
 Gemini no garantiza una página para todas las anotaciones de PDF. Cuando falta, la tarjeta conserva la fuente pero no se muestra un número de página inventado.
@@ -171,6 +153,8 @@ En Linux o macOS:
 ./scripts/check.sh
 ./scripts/fix.sh
 ```
+
+El hook de `pre-commit` ejecuta esta misma verificación completa antes de cada commit. En CI y dentro del propio hook se omite únicamente la reinstalación recursiva del hook; el bootstrap de dependencias se conserva.
 
 Pruebas enfocadas:
 
