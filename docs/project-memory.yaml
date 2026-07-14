@@ -1,0 +1,36 @@
+entries:
+  - time_utc: "2026-07-14T04:56:27Z"
+    time_local: "2026-07-14T01:56:27-03:00"
+    summary: "Created initial web app scaffold."
+    changed:
+      - "Initial FastAPI backend, React TypeScript frontend, checks, CI, hooks, AGENTS.md, and memory file."
+    verification:
+      - 'Not run yet; run ./scripts/check.sh before first commit.'
+  - time_utc: "2026-07-14T05:43:15Z"
+    time_local: "2026-07-14T02:43:15-03:00"
+    summary: "Implemented the document-grounded Spanish José Artigas chat MVP."
+    changed:
+      - "Added bounded Gemini Interactions streaming, File Search citations, usage/cost logs, synthetic corpus ingestion, and manual evaluations."
+      - "Added the in-memory React chat, safe formatting, accessible source cards, PowerShell checks, and complete operating documentation."
+    verification:
+      - "./scripts/check.sh: passed; backend 99 tests at 89.02% coverage, frontend 35 tests, typecheck, lint, and build."
+      - "uv run pytest tests/test_repository_docs.py -q --no-cov: passed, 2 tests."
+      - ".\\scripts\\check.ps1: skipped because PowerShell (pwsh) is unavailable in this Linux environment."
+      - "Live Gemini smoke: skipped because GEMINI_API_KEY, GEMINI_FILE_SEARCH_STORE, and a local .env are absent."
+  - time_utc: "2026-07-14T12:32:00Z"
+    time_local: "2026-07-14T09:32:00-03:00"
+    summary: "Added a single-command local development launcher."
+    changed:
+      - "Added scripts/run.sh to start Uvicorn and Vite together and stop both with Ctrl+C; documented the command."
+    verification:
+      - "bash -n scripts/run.sh: passed."
+      - "./scripts/run.sh: Uvicorn and Vite started; Ctrl+C stopped both with no remaining server processes."
+  - time_utc: "2026-07-14T13:26:06Z"
+    time_local: "2026-07-14T10:26:06-03:00"
+    summary: "Hardened live Gemini interaction finalization and token budgeting."
+    changed:
+      - "Added bounded canonical interaction reconciliation and usage-backed handling for reasonless output-limit completions without regenerating responses."
+      - "Raised the shared thought/output default to 4,096 tokens, clarified modern attribution versus reconstruction behavior, documented the limit, and isolated ingestion tests from the real .env."
+    verification:
+      - "./scripts/check.sh: passed; backend 105 tests at 89.73% coverage, frontend 35 tests, typecheck, lint, and build."
+      - "Live Gemini eval evals/results/20260714T132455Z.json: 15 completed, 0 operational errors, 0 missing required citations, 14 met committed expectations, 1 quotation case conflicts with the active corpus."
