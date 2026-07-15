@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Citation } from "../types";
+import type { SectionType, SourceCard } from "../types";
 
 export type CitationNavigation = {
   number: number;
@@ -8,21 +8,45 @@ export type CitationNavigation = {
 
 type CitationCardsProps = {
   messageId: number;
-  citations: Citation[];
+  sources: SourceCard[];
   navigation: CitationNavigation | null;
 };
 
+const evidenceLabels: Record<SectionType, string> = {
+  front_matter: "Presentación",
+  editorial_notice: "Aviso editorial",
+  methodology: "Metodología",
+  chronology: "Cronología",
+  thematic_index: "Índice temático",
+  document_index: "Índice documental",
+  document_record: "Ficha documental",
+  authorship_and_provenance: "Autoría y procedencia",
+  editorial_context: "Contexto editorial",
+  primary_text: "Documento primario",
+  reading_notes: "Notas de lectura",
+  documentary_topics: "Temas documentales",
+  documentary_limitations: "Límites documentales",
+  sources: "Fuentes documentales",
+  bibliography: "Bibliografía",
+  general_limitations: "Límites documentales generales",
+  colophon: "Colofón editorial",
+};
+
+function evidenceLabel(type: SectionType | null): string {
+  return type === null ? "Referencia documental" : evidenceLabels[type];
+}
+
 export default function CitationCards({
   messageId,
-  citations,
+  sources,
   navigation,
 }: CitationCardsProps) {
   const [trayOpen, setTrayOpen] = useState(false);
-  const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [dismissedNavigation, setDismissedNavigation] = useState<number | null>(
     null,
   );
-  const cardElements = useRef(new Map<number, HTMLElement>());
+  const cardElements = useRef(new Map<string, HTMLElement>());
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handledNavigation = useRef<number | null>(null);
 
@@ -35,7 +59,10 @@ export default function CitationCards({
   useEffect(() => {
     if (!navigation || !trayOpen) return;
 
-    const card = cardElements.current.get(navigation.number);
+    const source = sources.find((candidate) =>
+      candidate.citation_numbers.includes(navigation.number),
+    );
+    const card = source ? cardElements.current.get(source.id) : undefined;
     card?.classList.add("citation-highlight");
     card?.scrollIntoView({ block: "nearest" });
     card?.focus();
@@ -51,27 +78,29 @@ export default function CitationCards({
       }
       card?.classList.remove("citation-highlight");
     };
-  }, [navigation, trayOpen]);
+  }, [navigation, sources, trayOpen]);
 
-  function toggle(number: number) {
+  function toggle(source: SourceCard) {
+    const key = source.id;
     if (
-      navigation?.number === number &&
+      navigation !== null &&
+      source.citation_numbers.includes(navigation.number) &&
       dismissedNavigation !== navigation.token &&
-      !expanded.has(number)
+      !expanded.has(key)
     ) {
       setDismissedNavigation(navigation.token);
       return;
     }
     setExpanded((current) => {
       const next = new Set(current);
-      if (next.has(number)) next.delete(number);
-      else next.add(number);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   }
 
   const trayId = `citation-tray-${messageId}`;
-  const sourceLabel = citations.length === 1 ? "fuente" : "fuentes";
+  const sourceLabel = sources.length === 1 ? "fuente" : "fuentes";
 
   return (
     <section className="citation-cards" aria-label="Fuentes de esta respuesta">
@@ -80,10 +109,10 @@ export default function CitationCards({
         className="citation-tray-toggle"
         aria-expanded={trayOpen}
         aria-controls={trayId}
-        aria-label={`${trayOpen ? "Ocultar" : "Mostrar"} ${citations.length} ${sourceLabel}`}
+        aria-label={`${trayOpen ? "Ocultar" : "Mostrar"} ${sources.length} ${sourceLabel}`}
         onClick={() => setTrayOpen((current) => !current)}
       >
-        <span>Fuentes · {citations.length}</span>
+        <span>Fuentes · {sources.length}</span>
         <svg aria-hidden="true" viewBox="0 0 24 24">
           <path
             d="m7 9 5 5 5-5"
@@ -95,45 +124,90 @@ export default function CitationCards({
       </button>
       {trayOpen && (
         <div id={trayId} className="citation-tray-content">
-          {citations.map((citation) => {
-            const cardId = `citation-${messageId}-${citation.number}`;
+          {sources.map((source, index) => {
+            const cardId = `source-${messageId}-${source.id}`;
             const contentId = `${cardId}-content`;
             const isExpanded =
-              expanded.has(citation.number) ||
-              (navigation?.number === citation.number &&
+              expanded.has(source.id) ||
+              (navigation !== null &&
+                source.citation_numbers.includes(navigation.number) &&
                 dismissedNavigation !== navigation.token);
+            const pages = source.pages.length === 1
+              ? `Página ${source.pages[0]}`
+              : source.pages.length > 1
+                ? `Páginas ${source.pages.join(", ")}`
+                : null;
+            const displayTitle =
+              source.document_id === null ? "Referencia documental" : source.title;
             return (
               <article
-                key={citation.number}
+                key={source.id}
                 id={cardId}
                 ref={(element) => {
-                  if (element) cardElements.current.set(citation.number, element);
-                  else cardElements.current.delete(citation.number);
+                  if (element) cardElements.current.set(source.id, element);
+                  else cardElements.current.delete(source.id);
                 }}
                 className="citation-card"
                 tabIndex={-1}
-                data-testid={`citation-card-${citation.number}`}
+                data-testid={`source-card-${source.id}`}
               >
                 <button
                   type="button"
                   className="citation-toggle"
                   aria-expanded={isExpanded}
                   aria-controls={contentId}
-                  aria-label={`Fuente ${citation.number}: ${citation.title}`}
-                  onClick={() => toggle(citation.number)}
+                  aria-label={`Fuente ${index + 1}: ${displayTitle}`}
+                  onClick={() => toggle(source)}
                 >
-                  <span className="citation-number">[{citation.number}]</span>
-                  <span className="citation-title">{citation.title}</span>
-                  {citation.page !== null && (
-                    <span className="citation-page">Página {citation.page}</span>
-                  )}
+                  <span className="citation-number">
+                    [{source.citation_numbers.join(", ")}]
+                  </span>
+                  <span className="citation-title">{displayTitle}</span>
+                  {pages && <span className="citation-page">{pages}</span>}
                 </button>
                 {isExpanded && (
                   <div id={contentId} className="citation-content">
-                    <p className="citation-supported-label">
-                      Afirmación respaldada
-                    </p>
-                    <p>{citation.supported_text}</p>
+                    {(source.date || source.document_type) && (
+                      <p className="citation-metadata">
+                        {[source.date, source.document_type]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                    )}
+                    {source.relationship_to_artigas && (
+                      <p className="citation-relationship">
+                        {source.relationship_to_artigas}
+                      </p>
+                    )}
+                    {source.evidence_blocks.map((block) => (
+                      <section className="evidence-block" key={block.id}>
+                        <p className="evidence-type">
+                          {evidenceLabel(block.evidence_type)}
+                        </p>
+                        <p className="citation-supported-label">
+                          Afirmación respaldada
+                        </p>
+                        <p>{block.supported_text}</p>
+                        {block.excerpt && (
+                          <>
+                            <p className="citation-supported-label">
+                              Fragmento verificado
+                            </p>
+                            <blockquote>{block.excerpt}</blockquote>
+                          </>
+                        )}
+                      </section>
+                    ))}
+                    {source.pdf_url && source.pages[0] !== undefined && (
+                      <a
+                        className="citation-pdf-link"
+                        href={source.pdf_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Examinar la fuente en la página {source.pages[0]}
+                      </a>
+                    )}
                   </div>
                 )}
               </article>

@@ -32,6 +32,12 @@ const suggestions = [
   "¿Qué significaba la soberanía de los pueblos?",
   "¿Qué principios guiaron el Reglamento de Tierras?",
 ];
+const emptyState = {
+  shown_action_ids: [],
+  selected_action_ids: [],
+  submitted_action_id: null,
+  topic_depths: {},
+};
 
 function completion(
   interaction_id = "interaction-1",
@@ -42,6 +48,15 @@ function completion(
     interaction_id,
     final_text,
     citations,
+    answer_status: "conversational",
+    sources: [],
+    educational_actions: [],
+    learning_state: {
+      shown_action_ids: [],
+      selected_action_ids: [],
+      submitted_action_id: null,
+      topic_depths: {},
+    },
     usage: {
       input_tokens: 1,
       cached_input_tokens: 0,
@@ -182,10 +197,66 @@ describe("ChatPage", () => {
     expect(screen.getByText("¿Qué defendía?")).toBeInTheDocument();
     expect(await screen.findByText("Texto final")).toBeInTheDocument();
     expect(streamChatMock).toHaveBeenCalledWith(
-      { message: "¿Qué defendía?", turn_number: 1 },
+      {
+        message: "¿Qué defendía?",
+        turn_number: 1,
+        learning_state: emptyState,
+      },
       expect.any(Object),
       expect.any(AbortSignal),
     );
+  });
+
+  test("stores and renders the reviewed completion status and source cards", async () => {
+    streamChatMock.mockImplementation(async (_request, callbacks) => {
+      callbacks.onComplete({
+        ...completion("interaction-1", "Defendí la soberanía.", [
+          {
+            number: 1,
+            title: "artigas-corpus.pdf",
+            page: 26,
+            supported_text: "Defendí la soberanía.",
+            start_index: 0,
+            end_index: 23,
+          },
+        ]),
+        answer_status: "documented",
+        sources: [
+          {
+            id: "ART-005",
+            citation_numbers: [1],
+            document_id: "ART-005",
+            title: "Instrucciones del Año XIII",
+            date: "1813-04-13",
+            document_type: "Instrucciones",
+            authorship_classification: "approved_by_collective_body",
+            relationship_to_artigas: "Decisión colectiva.",
+            pages: [26],
+            pdf_url: "/api/corpus/artigas#page=26",
+            evidence_blocks: [
+              {
+                id: "evidence-1",
+                citation_numbers: [1],
+                section_id: "ART-005-primary",
+                evidence_type: "primary_text",
+                page: 26,
+                excerpt_id: "ART-005-EX-01",
+                excerpt: "La soberanía particular de los pueblos.",
+                supported_text: "Defendí la soberanía.",
+                learning_topic_ids: ["sovereignty-and-legitimacy"],
+              },
+            ],
+          },
+        ],
+      });
+    });
+    render(<ChatPage />);
+
+    submit("¿Qué defendía?");
+
+    expect(await screen.findByText("Respuesta documentada")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Mostrar 1 fuente" }));
+    expect(screen.getByText("Instrucciones del Año XIII")).toBeInTheDocument();
   });
 
   test("replaces the three-dot waiting indicator with the first streamed text", () => {
@@ -246,6 +317,162 @@ describe("ChatPage", () => {
     expect(streamChatMock.mock.calls[0][0]).toEqual({
       message: suggestions[0],
       turn_number: 1,
+      learning_state: emptyState,
+    });
+  });
+
+  test("fills and focuses the composer without submitting a reviewed action", async () => {
+    streamChatMock.mockImplementationOnce(async (_request, callbacks) => {
+      callbacks.onComplete({
+        ...completion(),
+        educational_actions: [
+          {
+            type: "deepen",
+            label: "Profundizar",
+            action_id: "federalismo-intro-1",
+            question: "¿Cómo se expresaba la autonomía de los pueblos?",
+            url: null,
+          },
+        ],
+        learning_state: {
+          shown_action_ids: ["federalismo-intro-1"],
+          selected_action_ids: [],
+          submitted_action_id: null,
+          topic_depths: {},
+        },
+      });
+    });
+    render(<ChatPage />);
+    submit("Explique el federalismo");
+    const action = await screen.findByRole("button", { name: /Profundizar/ });
+    streamChatMock.mockClear();
+
+    fireEvent.click(action);
+
+    expect(screen.getByLabelText("Pregunta para José Artigas")).toHaveValue(
+      "¿Cómo se expresaba la autonomía de los pueblos?",
+    );
+    expect(screen.getByLabelText("Pregunta para José Artigas")).toHaveFocus();
+    expect(streamChatMock).not.toHaveBeenCalled();
+  });
+
+  test("sends exact action identity, clears it after edits, and retains selected IDs", async () => {
+    const question = "¿Cómo se expresaba la autonomía de los pueblos?";
+    streamChatMock
+      .mockImplementationOnce(async (_request, callbacks) => {
+        callbacks.onComplete({
+          ...completion(),
+          educational_actions: [
+            {
+              type: "deepen",
+              label: "Profundizar",
+              action_id: "federalismo-intro-1",
+              question,
+              url: null,
+            },
+          ],
+          learning_state: {
+            shown_action_ids: ["federalismo-intro-1"],
+            selected_action_ids: [],
+            submitted_action_id: null,
+            topic_depths: {},
+          },
+        });
+      })
+      .mockImplementationOnce(async (_request, callbacks) => {
+        callbacks.onComplete({
+          ...completion("interaction-2", "Profundización"),
+          learning_state: {
+            shown_action_ids: ["federalismo-intro-1"],
+            selected_action_ids: ["federalismo-intro-1"],
+            submitted_action_id: null,
+            topic_depths: {
+              "federalism-and-provincial-autonomy": "deeper",
+            },
+          },
+        });
+      });
+    render(<ChatPage />);
+    submit("Explique el federalismo");
+    fireEvent.click(await screen.findByRole("button", { name: /Profundizar/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
+
+    await waitFor(() => expect(streamChatMock).toHaveBeenCalledTimes(2));
+    expect(streamChatMock.mock.calls[1][0]).toMatchObject({
+      message: question,
+      learning_state: {
+        shown_action_ids: ["federalismo-intro-1"],
+        selected_action_ids: ["federalismo-intro-1"],
+        submitted_action_id: "federalismo-intro-1",
+        topic_depths: {},
+      },
+    });
+
+    streamChatMock.mockImplementationOnce(async (_request, callbacks) => {
+      callbacks.onComplete(completion("interaction-3", "Libre"));
+    });
+    fireEvent.change(screen.getByLabelText("Pregunta para José Artigas"), {
+      target: { value: "Pregunta libre editada" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
+    await waitFor(() => expect(streamChatMock).toHaveBeenCalledTimes(3));
+    expect(streamChatMock.mock.calls[2][0].learning_state).toMatchObject({
+      selected_action_ids: ["federalismo-intro-1"],
+      submitted_action_id: null,
+    });
+  });
+
+  test("retry reuses the exact learning-state request and reset discards it", async () => {
+    const timeout: ChatError = {
+      code: "provider_timeout",
+      message: "La respuesta demoró demasiado.",
+      retryable: true,
+    };
+    const state = {
+      shown_action_ids: ["federalismo-intro-1"],
+      selected_action_ids: [],
+      submitted_action_id: null,
+      topic_depths: {},
+    };
+    streamChatMock
+      .mockImplementationOnce(async (_request, callbacks) => {
+        callbacks.onComplete({
+          ...completion(),
+          educational_actions: [
+            {
+              type: "deepen",
+              label: "Profundizar",
+              action_id: "federalismo-intro-1",
+              question: "¿Cómo se expresaba la autonomía?",
+              url: null,
+            },
+          ],
+          learning_state: state,
+        });
+      })
+      .mockRejectedValueOnce(new ChatApiError(timeout))
+      .mockImplementationOnce(async (_request, callbacks) => {
+        callbacks.onComplete(completion("interaction-2", "Recuperada"));
+      });
+    render(<ChatPage />);
+    submit("Explique");
+    fireEvent.click(await screen.findByRole("button", { name: /Profundizar/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
+    await screen.findByText(timeout.message);
+    const failedRequest = structuredClone(streamChatMock.mock.calls[1][0]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    await screen.findByText("Recuperada");
+    expect(streamChatMock.mock.calls[2][0]).toEqual(failedRequest);
+
+    fireEvent.click(screen.getByRole("button", { name: "Nueva conversación" }));
+    submit("Nueva pregunta");
+    await waitFor(() => expect(streamChatMock).toHaveBeenCalledTimes(4));
+    expect(streamChatMock.mock.calls[3][0].learning_state).toEqual({
+      shown_action_ids: [],
+      selected_action_ids: [],
+      submitted_action_id: null,
+      topic_depths: {},
     });
   });
 
@@ -363,6 +590,7 @@ describe("ChatPage", () => {
       message: "Segunda pregunta",
       previous_interaction_id: "interaction-1",
       turn_number: 2,
+      learning_state: emptyState,
     });
   });
 
@@ -443,6 +671,7 @@ describe("ChatPage", () => {
       message: "Segunda pregunta",
       previous_interaction_id: "interaction-1",
       turn_number: 2,
+      learning_state: emptyState,
     });
     expect(screen.getAllByText("Segunda pregunta")).toHaveLength(1);
   });
@@ -479,16 +708,45 @@ describe("ChatPage", () => {
       callbacks.onText("Libertad");
       expect(screen.queryByRole("button", { name: /Ver fuente/ })).not.toBeInTheDocument();
       callbacks.onComplete(
-        completion("interaction-1", "Libertad", [
-          {
-            number: 1,
-            title: "artigas.pdf",
-            page: null,
-            supported_text: "Libertad",
-            start_index: 0,
-            end_index: 8,
-          },
-        ]),
+        {
+          ...completion("interaction-1", "Libertad", [
+            {
+              number: 1,
+              title: "artigas.pdf",
+              page: null,
+              supported_text: "Libertad",
+              start_index: 0,
+              end_index: 8,
+            },
+          ]),
+          sources: [
+            {
+              id: "unmapped-1",
+              citation_numbers: [1],
+              document_id: null,
+              title: "artigas.pdf",
+              date: null,
+              document_type: null,
+              authorship_classification: null,
+              relationship_to_artigas: null,
+              pages: [],
+              pdf_url: null,
+              evidence_blocks: [
+                {
+                  id: "unmapped-evidence-1",
+                  citation_numbers: [1],
+                  section_id: null,
+                  evidence_type: null,
+                  page: null,
+                  excerpt_id: null,
+                  excerpt: null,
+                  supported_text: "Libertad",
+                  learning_topic_ids: [],
+                },
+              ],
+            },
+          ],
+        },
       );
     });
     render(<ChatPage />);
@@ -496,9 +754,10 @@ describe("ChatPage", () => {
     submit("¿Qué defendía?");
 
     expect(
-      await screen.findByRole("button", { name: "Ver fuente 1: artigas.pdf" }),
+      await screen.findByRole("button", { name: "Ver fuente 1" }),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Mostrar 1 fuente" }));
-    expect(screen.getByText("artigas.pdf")).toBeInTheDocument();
+    expect(screen.getByText("Referencia documental")).toBeInTheDocument();
+    expect(screen.queryByText("artigas.pdf")).not.toBeInTheDocument();
   });
 });

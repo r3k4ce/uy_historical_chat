@@ -6,6 +6,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def test_repository_documentation_covers_required_operation_contract() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    maintenance = (ROOT / "docs" / "corpus-maintenance.md").read_text(encoding="utf-8")
     env_example = (ROOT / "backend" / ".env.example").read_text(encoding="utf-8")
     assert not (ROOT / ".env.example").exists()
 
@@ -30,14 +31,26 @@ def test_repository_documentation_covers_required_operation_contract() -> None:
         "Python 3.12",
         ".\\scripts\\ensure.ps1",
         "./scripts/ensure.sh",
-        "artigas_mvp_backend.dev_corpus",
+        "data/artigas-corpus.pdf",
+        "artigas_mvp_backend.corpus prepare",
+        "artigas_mvp_backend.corpus validate --production",
         "artigas_mvp_backend.ingest",
         "artigas_mvp_backend.main:app",
-        "artigas_mvp_backend.evaluate --case instructions-xiii --confirm-cost",
+        "artigas_mvp_backend.evaluate run --all --confirm-cost",
+        "artigas_mvp_backend.evaluate review",
+        "artigas_mvp_backend.evaluate compare",
+        "artigas_mvp_backend.evaluate promote",
         ".\\scripts\\check.ps1",
         "./scripts/check.sh",
-        "sintético",
-        "reemplaz",
+        "/api/corpus/artigas#page=26",
+        "Documento primario",
+        "Contexto editorial",
+        "Reconstrucción contemporánea",
+        "Límite documental",
+        "Profundizar",
+        "Contrastar",
+        "Examinar la fuente",
+        "React",
         "no se muestra un número de página inventado",
         "desaparecen al recargar",
         "guardarraíl de experiencia de usuario",
@@ -46,6 +59,40 @@ def test_repository_documentation_covers_required_operation_contract() -> None:
     )
     for text in required_readme_text:
         assert text in readme
+
+    forbidden_readme_text = (
+        "artigas-dev-corpus.pdf",
+        "artigas_mvp_backend.dev_corpus",
+        "segundo personaje",
+    )
+    for text in forbidden_readme_text:
+        assert text not in readme
+
+    required_maintenance_text = (
+        "data/artigas-corpus.pdf",
+        "data/artigas-pages.json",
+        "data/source-manifest.yaml",
+        "data/learning-map.yaml",
+        "Codex",
+        "corpus prepare",
+        "corpus validate --production",
+        "PowerShell",
+        "Linux",
+        "File Search",
+        "nombre visible",
+        "hash",
+        "400",
+        "60",
+        "60 casos",
+        "3,25",
+        "90 %",
+        "15 %",
+        "4.096",
+        "baseline.json",
+        "promote",
+    )
+    for text in required_maintenance_text:
+        assert text in maintenance
 
 
 def test_native_powershell_scripts_exist_and_cover_full_repository_checks() -> None:
@@ -88,6 +135,9 @@ def test_dependency_and_tool_versions_are_declared_at_their_project_roots() -> N
     assert backend["tool"]["uv"]["required-version"] == "==0.11.26"
     assert any(item.startswith("pydantic") for item in runtime)
     assert any(item.startswith("google-genai") for item in runtime)
+    assert "pypdf==6.14.2" in runtime
+    assert "pyyaml==6.0.3" in runtime
+    assert not any(item.startswith("pyyaml") for item in dev)
     assert not any(item.startswith(("reportlab", "pytest", "ruff", "pyright")) for item in runtime)
     assert any(item.startswith("reportlab") for item in dev)
     assert any(item.startswith("pyright[nodejs]") for item in dev)

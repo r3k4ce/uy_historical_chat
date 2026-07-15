@@ -16,7 +16,7 @@ import artigas_mvp_backend.main as main_module
 from artigas_mvp_backend.api.chat import chat
 from artigas_mvp_backend.config import Settings
 from artigas_mvp_backend.main import _validation_payload, create_app
-from artigas_mvp_backend.models import ChatRequest, Citation
+from artigas_mvp_backend.models import ChatRequest, Citation, LearningState
 from artigas_mvp_backend.services.gemini import (
     GeminiCompleted,
     GeminiServiceError,
@@ -58,9 +58,24 @@ def configured_settings(**updates: object) -> Settings:
 
 class FakeRequest:
     def __init__(
-        self, settings: Settings, service: object | None = None, *, disconnected: bool = False
+        self,
+        settings: Settings,
+        service: object | None = None,
+        *,
+        corpus_service: object | None = None,
+        disconnected: bool = False,
     ) -> None:
-        self.app = SimpleNamespace(state=SimpleNamespace(settings=settings, gemini_service=service))
+        empty_corpus = SimpleNamespace(
+            learning_map=SimpleNamespace(topics=(), actions=()),
+            validate_action_id=lambda _action_id: None,
+        )
+        self.app = SimpleNamespace(
+            state=SimpleNamespace(
+                settings=settings,
+                gemini_service=service,
+                corpus_service=corpus_service or empty_corpus,
+            )
+        )
         self.disconnected = disconnected
 
     async def is_disconnected(self) -> bool:
@@ -182,7 +197,150 @@ async def test_stream_frames_text_and_canonical_completion() -> None:
     assert "event: complete\n" in body
     assert '"interaction_id":"interaction-1"' in body
     assert '"final_text":"Defendí la federación."' in body
+    assert '"answer_status":"documented"' in body
+    assert '"sources":[{"id":"unmapped-1"' in body
+    assert '"supported_text":"federación"' in body
+    assert '"educational_actions":[]' in body
+    assert '"learning_state":{"shown_action_ids":[]' in body
     assert service.calls == [("Explique la federación.", "previous-1")]
+
+
+@pytest.mark.anyio
+async def test_canonical_completion_enriches_mapped_corpus_evidence(tmp_path) -> None:
+    from corpus_fixtures import make_corpus_paths
+
+    from artigas_mvp_backend.services.corpus import CorpusService
+
+    corpus = CorpusService.load(make_corpus_paths(tmp_path))
+    service = FakeService(
+        [
+            GeminiCompleted(
+                interaction_id="interaction-mapped",
+                final_text="Defendí la autonomía provincial.",
+                citations=(
+                    Citation(
+                        number=1,
+                        title="corpus.pdf",
+                        page=2,
+                        supported_text="autonomía provincial",
+                        start_index=11,
+                        end_index=31,
+                    ),
+                ),
+                usage=USAGE,
+            )
+        ]
+    )
+    response = await chat(
+        cast(
+            Request,
+            FakeRequest(configured_settings(), service, corpus_service=corpus),
+        ),
+        ChatRequest(message="Explique la autonomía.", turn_number=1),
+    )
+
+    body = await response_text(response)
+
+    assert '"answer_status":"documented"' in body
+    assert '"id":"document-DOC-001"' in body
+    assert '"document_id":"DOC-001"' in body
+    assert '"pdf_url":"/api/corpus/artigas#page=2"' in body
+    assert '"type":"deepen","label":"Profundizar","action_id":"active-action"' in body
+    assert '"type":"source","label":"Examinar la fuente"' in body
+    assert '"shown_action_ids":["active-action"]' in body
+    assert service.calls == [("Explique la autonomía.", None)]
+
+
+@pytest.mark.anyio
+async def test_completion_advances_and_returns_normalized_learning_state(tmp_path) -> None:
+    from corpus_fixtures import make_corpus_paths
+
+    from artigas_mvp_backend.services.corpus import CorpusService
+
+    corpus = CorpusService.load(make_corpus_paths(tmp_path))
+    service = FakeService(
+        [
+            GeminiCompleted(
+                interaction_id="interaction-learning",
+                final_text="Defendí la autonomía provincial.",
+                citations=(
+                    Citation(
+                        number=1,
+                        title="corpus.pdf",
+                        page=2,
+                        supported_text="autonomía provincial",
+                        start_index=11,
+                        end_index=31,
+                    ),
+                ),
+                usage=USAGE,
+            )
+        ]
+    )
+    response = await chat(
+        cast(Request, FakeRequest(configured_settings(), service, corpus_service=corpus)),
+        ChatRequest(
+            message="Continúe.",
+            turn_number=2,
+            learning_state=LearningState(
+                shown_action_ids=["active-action", "stale"],
+                submitted_action_id="active-action",
+            ),
+        ),
+    )
+
+    body = await response_text(response)
+
+    assert '"educational_actions":[{"type":"source"' in body
+    assert '"shown_action_ids":["active-action"]' in body
+    assert '"selected_action_ids":["active-action"]' in body
+    assert '"submitted_action_id":null' in body
+    assert '"topic_depths":{"federalism-and-provincial-autonomy":"deeper"}' in body
+
+
+@pytest.mark.anyio
+async def test_local_enrichment_failure_is_a_safe_terminal_sse(monkeypatch) -> None:
+    class BrokenCorpus:
+        def resolve_document(self, _page: int) -> None:
+            raise RuntimeError("sensitive local path")
+
+    service = FakeService(
+        [
+            GeminiCompleted(
+                interaction_id="interaction-broken",
+                final_text="Respuesta canónica.",
+                citations=(
+                    Citation(
+                        number=1,
+                        title="corpus.pdf",
+                        page=1,
+                        supported_text="Respuesta",
+                        start_index=0,
+                        end_index=9,
+                    ),
+                ),
+                usage=USAGE,
+            )
+        ]
+    )
+    logged: list[dict[str, object]] = []
+    monkeypatch.setattr(chat_module, "log_error", lambda **values: logged.append(values))
+    response = await chat(
+        cast(
+            Request,
+            FakeRequest(configured_settings(), service, corpus_service=BrokenCorpus()),
+        ),
+        ChatRequest(message="Pregunta", turn_number=1),
+    )
+
+    body = await response_text(response)
+
+    assert body.count("event: error") == 1
+    assert body.count("event: complete") == 0
+    assert '"code":"corpus_unavailable"' in body
+    assert "sensitive local path" not in body
+    assert logged[0]["error_code"] == "corpus_unavailable"
+    assert service.calls == [("Pregunta", None)]
 
 
 @pytest.mark.anyio
@@ -280,3 +438,45 @@ async def test_lifespan_creates_and_closes_only_owned_service(monkeypatch) -> No
         assert app.state.gemini_service is owned
 
     assert closed == [True]
+
+
+@pytest.mark.anyio
+async def test_lifespan_loads_owned_corpus_once_without_contacting_gemini(
+    monkeypatch, tmp_path
+) -> None:
+    from corpus_fixtures import make_corpus_paths
+
+    paths = make_corpus_paths(tmp_path)
+    loaded: list[object] = []
+    corpus = object()
+
+    def load(injected_paths, *, production_ready=False):
+        loaded.append((injected_paths, production_ready))
+        return corpus
+
+    monkeypatch.setattr(main_module.CorpusService, "load", load)
+    monkeypatch.setattr(
+        main_module,
+        "GeminiService",
+        lambda _settings: pytest.fail("Gemini was contacted"),
+    )
+    app = create_app(settings=Settings(), corpus_paths=paths)
+
+    async with app.router.lifespan_context(app):
+        assert app.state.corpus_service is corpus
+
+    assert loaded == [(paths, False)]
+
+
+@pytest.mark.anyio
+async def test_lifespan_preserves_injected_corpus_service(monkeypatch) -> None:
+    corpus = object()
+    monkeypatch.setattr(
+        main_module.CorpusService,
+        "load",
+        lambda *_args, **_kwargs: pytest.fail("loaded corpus files"),
+    )
+    app = create_app(settings=Settings(), corpus_service=corpus)
+
+    async with app.router.lifespan_context(app):
+        assert app.state.corpus_service is corpus

@@ -374,6 +374,23 @@ a {
   padding-left: 1.4rem;
 }
 
+.answer-status {
+  width: fit-content;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgb(255 252 247 / 72%);
+  padding: 0.12rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.answer-status-documentary_limitation {
+  border-color: rgb(163 61 50 / 28%);
+  color: var(--error);
+}
+
 .typing-indicator {
   display: inline-flex;
   width: fit-content;
@@ -448,6 +465,41 @@ a {
   margin: 0.15rem 0 0 3.15rem;
 }
 
+.educational-actions {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.85rem 0 0 3.15rem;
+}
+
+.educational-actions button,
+.educational-actions a {
+  display: grid;
+  width: 100%;
+  gap: 0.18rem;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  color: var(--ink);
+  background: rgb(255 252 247 / 68%);
+  padding: 0.65rem 0.75rem;
+  text-align: left;
+  text-decoration: none;
+}
+
+.educational-actions button:hover:not(:disabled),
+.educational-actions a:hover {
+  border-color: rgb(124 48 40 / 50%);
+  background: var(--surface);
+}
+
+.educational-actions strong {
+  color: var(--oxblood);
+  font-size: 0.78rem;
+}
+
+.educational-actions span {
+  line-height: 1.4;
+}
+
 .citation-tray-toggle {
   display: inline-flex;
   align-items: center;
@@ -520,6 +572,49 @@ a {
 .citation-content {
   border-top: 1px solid var(--border);
   padding: 0.72rem;
+}
+
+.citation-metadata,
+.citation-relationship {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.citation-relationship {
+  margin-top: 0.3rem !important;
+}
+
+.evidence-block {
+  margin-top: 0.7rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.65rem;
+}
+
+.evidence-type {
+  margin-bottom: 0.45rem !important;
+  color: var(--blue);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.evidence-block blockquote {
+  margin: 0.25rem 0 0;
+  border-left: 3px solid var(--sand);
+  color: var(--ink);
+  padding-left: 0.72rem;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.citation-pdf-link {
+  display: inline-block;
+  margin-top: 0.75rem;
+  color: var(--blue);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
 }
 
 .citation-supported-label {
@@ -772,7 +867,8 @@ a {
   }
 
   .message-actions,
-  .citation-cards {
+  .citation-cards,
+  .educational-actions {
     margin-left: 0;
   }
 

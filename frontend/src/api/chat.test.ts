@@ -15,6 +15,58 @@ const complete: CompleteEvent = {
       end_index: 35,
     },
   ],
+  answer_status: "documented",
+  sources: [
+    {
+      id: "ART-005",
+      citation_numbers: [1],
+      document_id: "ART-005",
+      title: "Instrucciones del Año XIII",
+      date: "1813-04-13",
+      document_type: "Instrucciones",
+      authorship_classification: "approved_by_collective_body",
+      relationship_to_artigas: "Decisión del Congreso de Abril.",
+      pages: [26],
+      pdf_url: "/api/corpus/artigas#page=26",
+      evidence_blocks: [
+        {
+          id: "evidence-1",
+          citation_numbers: [1],
+          section_id: "ART-005-primary",
+          evidence_type: "primary_text",
+          page: 26,
+          excerpt_id: "ART-005-EX-01",
+          excerpt: "No admitirá otro sistema que el de confederación.",
+          supported_text: "La soberanía reside en los pueblos.",
+          learning_topic_ids: ["federalism-and-provincial-autonomy"],
+        },
+      ],
+    },
+  ],
+  educational_actions: [
+    {
+      type: "deepen",
+      label: "Profundizar",
+      action_id: "federalismo-intro-1",
+      question: "¿Cómo se expresaba la autonomía de los pueblos?",
+      url: null,
+    },
+    {
+      type: "source",
+      label: "Examinar la fuente",
+      action_id: null,
+      question: null,
+      url: "/api/corpus/artigas#page=26",
+    },
+  ],
+  learning_state: {
+    shown_action_ids: ["federalismo-intro-1"],
+    selected_action_ids: [],
+    submitted_action_id: null,
+    topic_depths: {
+      "federalism-and-provincial-autonomy": "introductory",
+    },
+  },
   usage: {
     input_tokens: 120,
     cached_input_tokens: 20,
@@ -189,6 +241,130 @@ describe("streamChat", () => {
     expect(handlers.onComplete).toHaveBeenCalledOnce();
     expect(handlers.onComplete).toHaveBeenCalledWith(complete);
     expect(handlers.onError).not.toHaveBeenCalled();
+  });
+
+  test("rejects malformed nested reviewed source data", async () => {
+    const malformed = structuredClone(complete) as unknown as {
+      sources: { evidence_blocks: { evidence_type: string }[] }[];
+    };
+    malformed.sources[0].evidence_blocks[0].evidence_type = "provider_guess";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        responseFromChunks([
+          new TextEncoder().encode(sse("complete", malformed)),
+        ]),
+      ),
+    );
+
+    await expect(
+      streamChat(
+        { message: "Pregunta", turn_number: 1 },
+        callbacks(),
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({
+      payload: { code: "provider_error", retryable: true },
+    });
+  });
+
+  test("rejects malformed educational actions and learning state", async () => {
+    const malformedAction = structuredClone(complete) as unknown as {
+      educational_actions: { type: string }[];
+    };
+    malformedAction.educational_actions[0].type = "generated";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        responseFromChunks([
+          new TextEncoder().encode(sse("complete", malformedAction)),
+        ]),
+      ),
+    );
+
+    await expect(
+      streamChat(
+        { message: "Pregunta", turn_number: 1 },
+        callbacks(),
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({
+      payload: { code: "provider_error", retryable: true },
+    });
+
+    const malformedState = structuredClone(complete) as unknown as {
+      learning_state: { topic_depths: Record<string, string> };
+    };
+    malformedState.learning_state.topic_depths["unknown-topic"] = "introductory";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        responseFromChunks([
+          new TextEncoder().encode(sse("complete", malformedState)),
+        ]),
+      ),
+    );
+
+    await expect(
+      streamChat(
+        { message: "Pregunta", turn_number: 1 },
+        callbacks(),
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({
+      payload: { code: "provider_error", retryable: true },
+    });
+
+    const arrayState = structuredClone(complete) as unknown as {
+      learning_state: { topic_depths: unknown };
+    };
+    arrayState.learning_state.topic_depths = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        responseFromChunks([
+          new TextEncoder().encode(sse("complete", arrayState)),
+        ]),
+      ),
+    );
+
+    await expect(
+      streamChat(
+        { message: "Pregunta", turn_number: 1 },
+        callbacks(),
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({
+      payload: { code: "provider_error", retryable: true },
+    });
+  });
+
+  test.each([
+    "javascript:alert(1)",
+    "file:///private/artigas.pdf",
+    "/api/corpus/artigas",
+    "/api/corpus/artigas#page=0",
+  ])("rejects an unsafe or incomplete corpus PDF URL: %s", async (pdfUrl) => {
+    const malformed = structuredClone(complete);
+    malformed.sources[0].pdf_url = pdfUrl;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        responseFromChunks([
+          new TextEncoder().encode(sse("complete", malformed)),
+        ]),
+      ),
+    );
+
+    await expect(
+      streamChat(
+        { message: "Pregunta", turn_number: 1 },
+        callbacks(),
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({
+      payload: { code: "provider_error", retryable: true },
+    });
   });
 
   test("dispatches a terminal SSE error", async () => {

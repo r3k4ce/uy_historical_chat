@@ -74,7 +74,10 @@ def normalize_citations(final_text: str, annotations: Iterable[object]) -> tuple
             raise CitationProcessingError("Citation offsets are outside the response")
         normalized_name = (raw.file_name or "").strip()
         identity = raw.source_identity or normalized_name
-        key = (identity, raw.page_number, raw.byte_start, raw.byte_end)
+        physical_page = (
+            raw.page_number + 1 if raw.page_number is not None and raw.page_number >= 0 else None
+        )
+        key = (identity, physical_page, raw.byte_start, raw.byte_end)
         if key in seen:
             continue
         seen.add(key)
@@ -90,7 +93,7 @@ def normalize_citations(final_text: str, annotations: Iterable[object]) -> tuple
             Citation(
                 number=len(result) + 1,
                 title=normalized_name or "Fuente documental",
-                page=raw.page_number,
+                page=physical_page,
                 supported_text=supported_text,
                 start_index=len(start_text.encode("utf-16-le")) // 2,
                 end_index=len(end_text.encode("utf-16-le")) // 2,

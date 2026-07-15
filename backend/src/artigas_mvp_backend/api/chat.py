@@ -16,6 +16,17 @@ from artigas_mvp_backend.models import (
     ErrorPayload,
     TextEventData,
 )
+from artigas_mvp_backend.services.education import (
+    advance_learning_state,
+    normalize_learning_state,
+    select_educational_actions,
+)
+from artigas_mvp_backend.services.evidence import (
+    analyze_citations,
+    build_source_cards,
+    canonicalize_answer_text,
+    classify_answer,
+)
 from artigas_mvp_backend.services.gemini import (
     GeminiCompleted,
     GeminiService,
@@ -69,12 +80,46 @@ async def chat(request: Request, payload: ChatRequest) -> StreamingResponse | JS
                     yield encode_sse("text", TextEventData(delta=event.delta))
                 elif isinstance(event, GeminiCompleted):
                     terminal = True
-                    completion = CompleteEventData(
-                        interaction_id=event.interaction_id,
-                        final_text=event.final_text,
-                        citations=list(event.citations),
-                        usage=event.usage.to_payload(),
-                    )
+                    citations = list(event.citations)
+                    final_text = canonicalize_answer_text(event.final_text, citations)
+                    corpus = request.app.state.corpus_service
+                    try:
+                        learning_state = advance_learning_state(
+                            normalize_learning_state(payload.learning_state, corpus),
+                            corpus,
+                        )
+                        analysis = analyze_citations(citations, corpus)
+                        answer_status = classify_answer(final_text, citations)
+                        educational_actions = select_educational_actions(
+                            answer_status=answer_status,
+                            analysis=analysis,
+                            state=learning_state,
+                            corpus=corpus,
+                        )
+                        completion = CompleteEventData(
+                            interaction_id=event.interaction_id,
+                            final_text=final_text,
+                            citations=citations,
+                            answer_status=answer_status,
+                            sources=list(
+                                build_source_cards(
+                                    final_text,
+                                    citations,
+                                    analysis,
+                                    corpus,
+                                )
+                            ),
+                            educational_actions=list(educational_actions),
+                            learning_state=learning_state,
+                            usage=event.usage.to_payload(),
+                        )
+                    except Exception as exc:
+                        raise GeminiServiceError(
+                            code="corpus_unavailable",
+                            user_message="El corpus documental no está disponible.",
+                            retryable=False,
+                            transient=False,
+                        ) from exc
                     log_completion(
                         request_id,
                         settings.gemini_model,

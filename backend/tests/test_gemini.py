@@ -139,8 +139,8 @@ def complete_stream(*deltas: str) -> FakeStream:
     return FakeStream(items)
 
 
-async def collect(service: GeminiService, **kwargs: Any) -> list[Any]:
-    return [item async for item in service.stream(message="pregunta", **kwargs)]
+async def collect(service: GeminiService, *, message: str = "pregunta", **kwargs: Any) -> list[Any]:
+    return [item async for item in service.stream(message=message, **kwargs)]
 
 
 @pytest.mark.anyio
@@ -149,12 +149,18 @@ async def test_request_reapplies_exact_configuration_on_first_and_followup() -> 
     service = GeminiService(configured_settings(), client=FakeClient(interactions))
 
     await collect(service, previous_interaction_id=None)
-    await collect(service, previous_interaction_id="interactions/previous")
+    await collect(
+        service,
+        message="Continuación histórica.",
+        previous_interaction_id="interactions/previous",
+    )
 
     first, followup = interactions.create_calls
     for request in (first, followup):
         assert request["model"] == "gemini-3.5-flash"
         assert "simulación histórica" in request["system_instruction"]
+        assert "No generes acciones educativas" in request["system_instruction"]
+        assert "3. Alcance y límites" in request["system_instruction"]
         assert request["tools"] == [
             {
                 "type": "file_search",
@@ -165,10 +171,155 @@ async def test_request_reapplies_exact_configuration_on_first_and_followup() -> 
             "thinking_level": "low",
             "max_output_tokens": 4096,
             "temperature": 0.4,
+            "tool_choice": "validated",
         }
         assert request["stream"] is True
     assert "previous_interaction_id" not in first
     assert followup["previous_interaction_id"] == "interactions/previous"
+
+
+@pytest.mark.anyio
+async def test_non_question_followup_retains_conversational_tool_choice() -> None:
+    interactions = FakeInteractions([complete_stream()])
+    service = GeminiService(configured_settings(), client=FakeClient(interactions))
+
+    _ = [
+        item
+        async for item in service.stream(
+            message="Gracias por la explicación.",
+            previous_interaction_id="interactions/previous",
+        )
+    ]
+
+    assert interactions.create_calls[0]["generation_config"]["tool_choice"] == "validated"
+
+
+@pytest.mark.anyio
+async def test_uncited_question_followup_retries_grounding_without_streaming_second_draft() -> None:
+    annotation = {
+        "type": "file_citation",
+        "source_id": "files/1",
+        "file_name": "artigas.pdf",
+        "page_number": 3,
+        "start_index": 0,
+        "end_index": len(b"Respuesta documentada"),
+    }
+    interactions = FakeInteractions(
+        [complete_stream("Primer borrador"), complete_stream("Segundo borrador")],
+        stored=[
+            stored_interaction("Primer borrador"),
+            stored_interaction("Respuesta documentada", annotations=[annotation]),
+        ],
+    )
+    service = GeminiService(configured_settings(), client=FakeClient(interactions))
+
+    events = await collect(
+        service,
+        message="¿Pregunta histórica?",
+        previous_interaction_id="interactions/previous",
+    )
+
+    assert [event.delta for event in events if isinstance(event, GeminiTextDelta)] == [
+        "Primer borrador"
+    ]
+    completed = next(event for event in events if isinstance(event, GeminiCompleted))
+    assert completed.final_text == "Respuesta documentada"
+    assert len(completed.citations) == 1
+    assert interactions.create_calls[1]["input"].startswith("Consulta nuevamente el corpus")
+    assert interactions.create_calls[1]["previous_interaction_id"] == "interactions/previous"
+
+
+@pytest.mark.anyio
+async def test_grounding_retry_failure_returns_the_streamed_fallback_completion() -> None:
+    interactions = FakeInteractions(
+        [complete_stream("Borrador"), RuntimeError("retry failed")],
+        stored=stored_interaction("Borrador"),
+    )
+    service = GeminiService(configured_settings(), client=FakeClient(interactions))
+
+    events = await collect(
+        service,
+        message="¿Pregunta histórica?",
+        previous_interaction_id="interactions/previous",
+    )
+
+    completed = next(event for event in events if isinstance(event, GeminiCompleted))
+    assert completed.final_text == "Borrador"
+    assert completed.citations == ()
+
+
+@pytest.mark.anyio
+async def test_uncited_grounding_retry_keeps_fallback_and_combines_usage() -> None:
+    first_stream = complete_stream("Primer borrador")
+    second_stream = complete_stream("Segundo borrador")
+    interactions = FakeInteractions(
+        [first_stream, second_stream],
+        stored=[
+            stored_interaction("Primer borrador", output_tokens=20),
+            stored_interaction("Segundo borrador", output_tokens=30),
+        ],
+    )
+    service = GeminiService(configured_settings(), client=FakeClient(interactions))
+
+    events = await collect(
+        service,
+        message="¿Pregunta histórica?",
+        previous_interaction_id="interactions/previous",
+    )
+
+    completed = next(event for event in events if isinstance(event, GeminiCompleted))
+    assert completed.final_text == "Primer borrador"
+    assert completed.citations == ()
+    assert completed.usage.output_tokens == 50
+    assert first_stream.closed is True
+    assert second_stream.closed is True
+
+
+@pytest.mark.anyio
+async def test_nonaccepted_terminal_interaction_retries_without_duplicate_deltas() -> None:
+    first_stream = complete_stream("Primer borrador")
+    second_stream = complete_stream("Segundo borrador")
+    interactions = FakeInteractions(
+        [first_stream, second_stream],
+        stored=[
+            stored_interaction("Primer borrador", status="failed", output_tokens=20),
+            stored_interaction("Respuesta final", output_tokens=30),
+        ],
+    )
+    service = GeminiService(configured_settings(), client=FakeClient(interactions))
+
+    events = await collect(service, previous_interaction_id=None)
+
+    assert [event.delta for event in events if isinstance(event, GeminiTextDelta)] == [
+        "Primer borrador"
+    ]
+    completed = next(event for event in events if isinstance(event, GeminiCompleted))
+    assert completed.final_text == "Respuesta final"
+    assert completed.usage.output_tokens == 50
+    assert first_stream.closed is True
+    assert second_stream.closed is True
+
+
+@pytest.mark.anyio
+async def test_terminal_retry_streams_when_the_failed_attempt_emitted_no_text() -> None:
+    first_stream = complete_stream()
+    second_stream = complete_stream("Respuesta del reintento")
+    interactions = FakeInteractions(
+        [first_stream, second_stream],
+        stored=[
+            stored_interaction("", status="failed"),
+            stored_interaction("Respuesta del reintento"),
+        ],
+    )
+    service = GeminiService(configured_settings(), client=FakeClient(interactions))
+
+    events = await collect(service, previous_interaction_id=None)
+
+    assert [event.delta for event in events if isinstance(event, GeminiTextDelta)] == [
+        "Respuesta del reintento"
+    ]
+    assert first_stream.closed is True
+    assert second_stream.closed is True
 
 
 @pytest.mark.anyio
@@ -251,7 +402,7 @@ async def test_reconciles_stale_canonical_status_without_regenerating(
 
 
 @pytest.mark.anyio
-async def test_persistent_stale_canonical_status_fails_without_regenerating() -> None:
+async def test_persistent_stale_canonical_status_retries_once_then_fails() -> None:
     stale = stored_interaction("Respuesta", status="incomplete")
     interactions = FakeInteractions([complete_stream("Respuesta")], [stale])
 
@@ -263,7 +414,7 @@ async def test_persistent_stale_canonical_status_fails_without_regenerating() ->
 
     assert exc_info.value.code == "provider_error"
     assert len(interactions.get_calls) > 1
-    assert len(interactions.create_calls) == 1
+    assert len(interactions.create_calls) == 2
 
 
 @pytest.mark.anyio

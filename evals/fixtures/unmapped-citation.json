@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "completion": {
+    "interaction_id": "fixture-unmapped-citation",
+    "final_text": "La respuesta contiene una referencia que no puede vincularse de forma segura con una página del corpus local.",
+    "citations": [
+      {
+        "number": 1,
+        "title": "Referencia del proveedor",
+        "page": null,
+        "supported_text": "una referencia",
+        "start_index": 22,
+        "end_index": 36
+      }
+    ],
+    "answer_status": "documented",
+    "sources": [
+      {
+        "id": "unmapped-1",
+        "citation_numbers": [1],
+        "document_id": null,
+        "title": "Referencia del proveedor",
+        "date": null,
+        "document_type": null,
+        "authorship_classification": null,
+        "relationship_to_artigas": null,
+        "pages": [],
+        "pdf_url": null,
+        "evidence_blocks": [
+          {
+            "id": "citation-1",
+            "citation_numbers": [1],
+            "section_id": null,
+            "evidence_type": null,
+            "page": null,
+            "excerpt_id": null,
+            "excerpt": null,
+            "supported_text": "una referencia",
+            "learning_topic_ids": []
+          }
+        ]
+      }
+    ],
+    "educational_actions": [],
+    "learning_state": {
+      "shown_action_ids": [],
+      "selected_action_ids": [],
+      "submitted_action_id": null,
+      "topic_depths": {}
+    },
+    "usage": {
+      "input_tokens": 10,
+      "cached_input_tokens": 0,
+      "output_tokens": 20,
+      "thought_tokens": 5,
+      "total_tokens": 35,
+      "estimated_cost_usd": 0.000075
+    }
+  },
+  "error": null
+}

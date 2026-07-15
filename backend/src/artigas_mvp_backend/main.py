@@ -10,8 +10,11 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from artigas_mvp_backend.api.chat import router as chat_router
+from artigas_mvp_backend.api.corpus import router as corpus_router
 from artigas_mvp_backend.config import Settings, load_settings
+from artigas_mvp_backend.corpus import CorpusPaths
 from artigas_mvp_backend.models import ErrorPayload
+from artigas_mvp_backend.services.corpus import CorpusService
 from artigas_mvp_backend.services.gemini import GeminiService
 
 
@@ -42,12 +45,17 @@ def _validation_payload(exc: RequestValidationError) -> tuple[int, ErrorPayload]
 def create_app(
     settings: Settings | None = None,
     gemini_service: GeminiService | Any | None = None,
+    corpus_service: CorpusService | Any | None = None,
+    corpus_paths: CorpusPaths | None = None,
 ) -> FastAPI:
     application_settings = settings or load_settings()
+    application_corpus_paths = corpus_paths or CorpusPaths.repository_defaults()
 
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         owned_service: GeminiService | None = None
+        if corpus_service is None:
+            application.state.corpus_service = CorpusService.load(application_corpus_paths)
         if gemini_service is None and application_settings.chat_configuration_error() is None:
             owned_service = GeminiService(application_settings)
             application.state.gemini_service = owned_service
@@ -63,6 +71,7 @@ def create_app(
     app = FastAPI(title="artigas-mvp", lifespan=lifespan)
     app.state.settings = application_settings
     app.state.gemini_service = gemini_service
+    app.state.corpus_service = corpus_service
 
     @app.exception_handler(RequestValidationError)
     async def chat_validation_handler(
@@ -78,6 +87,7 @@ def create_app(
         return {"status": "ok", "project": "artigas-mvp"}
 
     app.include_router(chat_router)
+    app.include_router(corpus_router)
     return app
 
 

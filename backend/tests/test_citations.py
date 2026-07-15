@@ -72,7 +72,19 @@ def test_extracts_file_citation_annotations_and_ignores_other_types() -> None:
     ignored = SimpleNamespace(type="url_citation", start_index=0, end_index=5)
     citations = normalize_citations("texto", [ignored, annotation])
     assert len(citations) == 1
-    assert citations[0].page == 7
+    assert citations[0].page == 8
+
+
+@pytest.mark.parametrize(
+    ("provider_page", "physical_page"),
+    [(0, 1), (25, 26), (53, 54), (-1, None), (None, None)],
+)
+def test_normalizes_provider_pages_to_physical_pages(
+    provider_page: int | None, physical_page: int | None
+) -> None:
+    citation = normalize_citations("texto", [raw(0, 5, page=provider_page)])[0]
+
+    assert citation.page == physical_page
 
 
 def test_empty_annotations_are_valid() -> None:

@@ -1,0 +1,609 @@
+schema_version: 1
+corpus_id: artigas
+corpus_title: José Gervasio Artigas — corpus documental
+corpus_pdf: data/artigas-corpus.pdf
+corpus_sha256: d27cad55d58cf92ec30d48852fb6a46fada9ac4766d9144366e8775dbc723797
+page_count: 74
+review_status: reviewed
+reviewed_by: adrian
+reviewed_at: 2026-07-15T00:00:20-03:00
+
+corpus_sections:
+  - {id: corpus-front-matter, document_id: null, corpus_parent: corpus, page_start: 1, page_end: 1, section_type: front_matter, documentary_topics: [], learning_topics: [], priority: 10, review_status: reviewed}
+  - {id: corpus-editorial-notice, document_id: null, corpus_parent: corpus, page_start: 2, page_end: 2, section_type: editorial_notice, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: corpus-methodology, document_id: null, corpus_parent: corpus, page_start: 3, page_end: 4, section_type: methodology, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: corpus-chronology, document_id: null, corpus_parent: corpus, page_start: 5, page_end: 6, section_type: chronology, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: corpus-thematic-index, document_id: null, corpus_parent: corpus, page_start: 7, page_end: 7, section_type: thematic_index, documentary_topics: [], learning_topics: [], priority: 10, review_status: reviewed}
+  - {id: corpus-document-index, document_id: null, corpus_parent: corpus, page_start: 8, page_end: 9, section_type: document_index, documentary_topics: [], learning_topics: [], priority: 10, review_status: reviewed}
+  - {id: corpus-bibliography, document_id: null, corpus_parent: corpus, page_start: 71, page_end: 72, section_type: bibliography, documentary_topics: [], learning_topics: [], priority: 10, review_status: reviewed}
+  - {id: corpus-general-limitations, document_id: null, corpus_parent: corpus, page_start: 73, page_end: 73, section_type: general_limitations, documentary_topics: [], learning_topics: [], priority: 30, review_status: reviewed}
+  - {id: corpus-colophon, document_id: null, corpus_parent: corpus, page_start: 74, page_end: 74, section_type: colophon, documentary_topics: [], learning_topics: [], priority: 5, review_status: reviewed}
+
+documents:
+  - id: ART-001
+    title: Proclama al ejército de la Banda Oriental («Proclama de Mercedes»)
+    display_title: Proclama de Mercedes
+    date: "1811-04-11"
+    date_precision: exact
+    place: Cuartel General de Mercedes
+    document_type: Proclama militar y política
+    historical_period: Comienzo de la revolución oriental de 1811
+    issuing_authority: José Artigas
+    recipient: Compatriotas y fuerzas de la Banda Oriental
+    authorship_classification: dictated_or_signed_by_artigas
+    relationship_to_artigas: Publicada con la firma de José Artigas; no se conserva autógrafo.
+    provenance_summary: Texto conservado en una impresión contemporánea de la Gazeta de Buenos-Ayres.
+    textual_confidence: high
+    page_start: 10
+    page_end: 12
+    documentary_topics: [Buenos Aires, Libertad civil, Sociedad rural, Autoridad civil y militar]
+    learning_topics: [sovereignty-and-legitimacy, government-education-and-public-welfare]
+    priority: 70
+    review_status: reviewed
+    section_ids: [ART-001-record, ART-001-authorship, ART-001-context, ART-001-primary, ART-001-notes, ART-001-topics, ART-001-limitations, ART-001-sources]
+  - id: ART-002
+    title: Bases para la misión de Tomás García de Zúñiga ante el Gobierno de Buenos Aires
+    display_title: Bases de García de Zúñiga
+    date: 1813-02
+    date_precision: month
+    place: Paso de la Arena
+    document_type: Instrucciones para una misión política
+    historical_period: Conflicto con Manuel de Sarratea y retorno al sitio de Montevideo
+    issuing_authority: José Artigas
+    recipient: Tomás García de Zúñiga y Gobierno de Buenos Aires
+    authorship_classification: dictated_or_signed_by_artigas
+    relationship_to_artigas: Copia de Miguel Barreiro autenticada por Artigas.
+    provenance_summary: Copia manuscrita autenticada; una foja conservada en el Archivo General de la Nación.
+    textual_confidence: high
+    page_start: 13
+    page_end: 16
+    documentary_topics: [Soberanía popular, Soberanía provincial, Buenos Aires, Centralismo, Autoridad civil y militar]
+    learning_topics: [sovereignty-and-legitimacy, buenos-aires-centralism-and-union]
+    priority: 80
+    review_status: reviewed
+    section_ids: [ART-002-record, ART-002-authorship, ART-002-context, ART-002-primary, ART-002-notes, ART-002-topics, ART-002-limitations, ART-002-sources]
+  - id: ART-003
+    title: Oración inaugural del Congreso de Tres Cruces
+    display_title: Oración inaugural
+    date: "1813-04-04"
+    date_precision: exact
+    place: Tres Cruces, delante de Montevideo
+    document_type: Discurso de apertura ante una asamblea
+    historical_period: Congreso de Abril o de Tres Cruces
+    issuing_authority: José Artigas
+    recipient: Representantes y concurrentes del Pueblo Oriental
+    authorship_classification: dictated_or_signed_by_artigas
+    relationship_to_artigas: Oración atribuida a Artigas y conservada en copia autenticada por él.
+    provenance_summary: Copia manuscrita autenticada, comparada en la edición con tres versiones paralelas.
+    textual_confidence: high
+    page_start: 17
+    page_end: 20
+    documentary_topics: [Soberanía popular, Soberanía provincial, Buenos Aires, Centralismo, Libertad civil]
+    learning_topics: [sovereignty-and-legitimacy, buenos-aires-centralism-and-union]
+    priority: 90
+    review_status: reviewed
+    section_ids: [ART-003-record, ART-003-authorship, ART-003-context, ART-003-primary, ART-003-notes, ART-003-topics, ART-003-limitations, ART-003-sources]
+  - id: ART-004
+    title: Condiciones del reconocimiento de la Asamblea por el Congreso de Tres Cruces
+    display_title: Condiciones del 5 de abril
+    date: "1813-04-05"
+    date_precision: exact
+    place: Campo Oriental delante de Montevideo
+    document_type: Acta y condiciones de reconocimiento
+    historical_period: Congreso de Abril o de Tres Cruces
+    issuing_authority: Congreso de Tres Cruces
+    recipient: Asamblea General Constituyente de las Provincias Unidas
+    authorship_classification: approved_by_collective_body
+    relationship_to_artigas: Decisión colectiva cuya copia fue autenticada por Artigas.
+    provenance_summary: Acta colectiva en copia manuscrita autenticada; una foja conservada.
+    textual_confidence: high
+    page_start: 21
+    page_end: 23
+    documentary_topics: [Soberanía popular, Soberanía provincial, Federalismo, Buenos Aires, Centralismo]
+    learning_topics: [sovereignty-and-legitimacy, federalism-and-provincial-autonomy]
+    priority: 90
+    review_status: reviewed
+    section_ids: [ART-004-record, ART-004-authorship, ART-004-context, ART-004-primary, ART-004-notes, ART-004-topics, ART-004-limitations, ART-004-sources]
+  - id: ART-005
+    title: Instrucciones a los representantes del Pueblo Oriental («Instrucciones del Año XIII»)
+    display_title: Instrucciones del Año XIII
+    date: "1813-04-13"
+    date_precision: exact
+    place: Delante de Montevideo
+    document_type: Instrucciones a diputados
+    historical_period: Congreso de Tres Cruces y representación ante la Asamblea del Año XIII
+    issuing_authority: Pueblo Oriental reunido en congreso
+    recipient: Representantes orientales ante la Asamblea Constituyente de Buenos Aires
+    authorship_classification: approved_by_collective_body
+    relationship_to_artigas: Decisión congresal transmitida en copia autenticada por Artigas; redacción individual no establecida.
+    provenance_summary: Copia autenticada conservada en el Museo Histórico Nacional y cotejada con versión paralela.
+    textual_confidence: high
+    page_start: 24
+    page_end: 28
+    documentary_topics: [Soberanía provincial, Federalismo, Gobierno republicano, Libertad civil, Libertad religiosa, Centralismo, Buenos Aires, Aduanas y comercio]
+    learning_topics: [instructions-republic-and-liberties, federalism-and-provincial-autonomy, buenos-aires-centralism-and-union]
+    priority: 100
+    review_status: reviewed
+    section_ids: [ART-005-record, ART-005-authorship, ART-005-context, ART-005-primary, ART-005-notes, ART-005-topics, ART-005-limitations, ART-005-sources]
+  - id: ART-006
+    title: Carta al Cabildo de Corrientes sobre organización provincial y soberanía de los pueblos
+    display_title: Carta al Cabildo de Corrientes
+    date: "1814-03-29"
+    date_precision: exact
+    place: Cuartel General; localidad no consignada
+    document_type: Oficio político
+    historical_period: Expansión del artiguismo en el litoral y ruptura con el Directorio
+    issuing_authority: José Artigas
+    recipient: Cabildo de la ciudad de Corrientes
+    authorship_classification: dictated_or_signed_by_artigas
+    relationship_to_artigas: Original escrito por Miguel Barreiro y firmado por Artigas.
+    provenance_summary: Original secretarial conservado en el archivo capitular correntino.
+    textual_confidence: very_high
+    page_start: 29
+    page_end: 33
+    documentary_topics: [Soberanía popular, Soberanía provincial, Federalismo, Liga de los Pueblos Libres, Centralismo, Buenos Aires]
+    learning_topics: [sovereignty-and-legitimacy, federalism-and-provincial-autonomy, pueblos-libres-and-provincial-relations]
+    priority: 85
+    review_status: reviewed
+    section_ids: [ART-006-record, ART-006-authorship, ART-006-context, ART-006-primary, ART-006-notes, ART-006-topics, ART-006-limitations, ART-006-sources]
+  - id: ART-007
+    title: Carta a José de Silva sobre los pueblos indígenas y su administración
+    display_title: Pueblos indígenas de Corrientes
+    date: "1815-05-09"
+    date_precision: exact
+    place: Paraná
+    document_type: Carta de gobierno
+    historical_period: Organización del Sistema de los Pueblos Libres
+    issuing_authority: José Artigas
+    recipient: José de Silva
+    authorship_classification: dictated_or_signed_by_artigas
+    relationship_to_artigas: Original escrito por José Monterroso y firmado por Artigas.
+    provenance_summary: Original secretarial con una laguna material declarada.
+    textual_confidence: high
+    page_start: 34
+    page_end: 36
+    documentary_topics: [Pueblos indígenas, Grupos marginados, Soberanía popular, Soberanía provincial]
+    learning_topics: [land-society-and-marginalized-groups, sovereignty-and-legitimacy]
+    priority: 90
+    review_status: reviewed
+    section_ids: [ART-007-record, ART-007-authorship, ART-007-context, ART-007-primary, ART-007-notes, ART-007-topics, ART-007-limitations, ART-007-sources]
+  - id: ART-008
+    title: Proyecto de tratado de concordia con el Gobierno de Buenos Aires
+    display_title: Proyecto de tratado con Buenos Aires
+    date: "1815-06-16"
+    date_precision: exact
+    place: Cuartel General de Paysandú
+    document_type: Proyecto de tratado
+    historical_period: Negociaciones de Paysandú y apogeo del Sistema de los Pueblos Libres
+    issuing_authority: José Artigas
+    recipient: Comisionados de Buenos Aires Blas José Pico y Francisco Bruno de Rivarola
+    authorship_classification: issued_under_artigas_authority
+    relationship_to_artigas: Proyecto emitido bajo su autoridad y conservado como copia con firma reproducida.
+    provenance_summary: Copia manuscrita del proyecto no ratificado; original no localizado en la referencia citada.
+    textual_confidence: high
+    page_start: 37
+    page_end: 40
+    documentary_topics: [Soberanía provincial, Federalismo, Buenos Aires, Centralismo, Liga de los Pueblos Libres, Aduanas y comercio, Sociedad rural]
+    learning_topics: [federalism-and-provincial-autonomy, buenos-aires-centralism-and-union, pueblos-libres-and-provincial-relations]
+    priority: 85
+    review_status: reviewed
+    section_ids: [ART-008-record, ART-008-authorship, ART-008-context, ART-008-primary, ART-008-notes, ART-008-topics, ART-008-limitations, ART-008-sources]
+  - id: ART-009
+    title: Comunicación al Director Supremo sobre el congreso y la diputación de los pueblos libres
+    display_title: Diputación del Congreso de Oriente
+    date: "1815-06-29"
+    date_precision: exact
+    place: Cuartel General; Paysandú según la secuencia documental
+    document_type: Oficio diplomático
+    historical_period: Congreso de Oriente y Sistema de los Pueblos Libres
+    issuing_authority: José Artigas
+    recipient: Director Supremo Ignacio Álvarez Thomas
+    authorship_classification: dictated_or_signed_by_artigas
+    relationship_to_artigas: Original redactado por Miguel Barreiro y firmado por Artigas.
+    provenance_summary: Original secretarial conservado en los papeles del gobierno de Buenos Aires.
+    textual_confidence: very_high
+    page_start: 41
+    page_end: 44
+    documentary_topics: [Liga de los Pueblos Libres, Federalismo, Soberanía provincial, Buenos Aires, Centralismo]
+    learning_topics: [pueblos-libres-and-provincial-relations, federalism-and-provincial-autonomy]
+    priority: 85
+    review_status: reviewed
+    section_ids: [ART-009-record, ART-009-authorship, ART-009-context, ART-009-primary, ART-009-notes, ART-009-topics, ART-009-limitations, ART-009-sources]
+  - id: ART-010
+    title: Carta al Cabildo de Montevideo sobre libertad de esclavizados incorporados al servicio, administración y disciplina militar
+    display_title: Gobierno civil y disciplina militar
+    date: "1815-08-08"
+    date_precision: exact
+    place: Paysandú
+    document_type: Oficio de gobierno; selección de pasajes
+    historical_period: Gobierno artiguista de la Provincia Oriental
+    issuing_authority: José Artigas
+    recipient: Cabildo Gobernador de Montevideo
+    authorship_classification: dictated_or_signed_by_artigas
+    relationship_to_artigas: Oficio de José Monterroso firmado por Artigas; el testimonio tiene procedencia compuesta.
+    provenance_summary: Original truncado complementado en la edición con una copia manuscrita completa.
+    textual_confidence: high
+    page_start: 45
+    page_end: 48
+    documentary_topics: [Grupos marginados, Aduanas y comercio, Autoridad civil y militar, Sociedad rural, Buenos Aires]
+    learning_topics: [land-society-and-marginalized-groups, government-education-and-public-welfare]
+    priority: 90
+    review_status: reviewed
+    section_ids: [ART-010-record, ART-010-authorship, ART-010-context, ART-010-primary, ART-010-notes, ART-010-topics, ART-010-limitations, ART-010-sources]
+  - id: ART-011
+    title: Carta al Cabildo de Montevideo sobre orden público y creación de una biblioteca pública
+    display_title: Biblioteca pública de Montevideo
+    date: "1815-08-12"
+    date_precision: exact
+    place: Paysandú
+    document_type: Oficio de gobierno
+    historical_period: Gobierno artiguista de la Provincia Oriental
+    issuing_authority: José Artigas
+    recipient: Cabildo Gobernador de Montevideo
+    authorship_classification: dictated_or_signed_by_artigas
+    relationship_to_artigas: Oficio escrito por José Monterroso y firmado por Artigas.
+    provenance_summary: Original secretarial de dos fojas conservado en buen estado.
+    textual_confidence: very_high
+    page_start: 49
+    page_end: 51
+    documentary_topics: [Educación, Biblioteca pública, Autoridad civil y militar]
+    learning_topics: [government-education-and-public-welfare]
+    priority: 90
+    review_status: reviewed
+    section_ids: [ART-011-record, ART-011-authorship, ART-011-context, ART-011-primary, ART-011-notes, ART-011-topics, ART-011-limitations, ART-011-sources]
+  - id: ART-012
+    title: Reglamento Provisorio para el fomento de la campaña y seguridad de sus hacendados
+    display_title: Reglamento Provisorio de 1815
+    date: "1815-09-10"
+    date_precision: exact
+    place: Cuartel General; localidad no consignada
+    document_type: Reglamento provincial
+    historical_period: Gobierno artiguista de la Provincia Oriental
+    issuing_authority: José Artigas, Juan de León y León Pérez
+    recipient: Gobierno de Montevideo y autoridades de la campaña
+    authorship_classification: issued_under_artigas_authority
+    relationship_to_artigas: Acto de gobierno redactado por Monterroso, firmado por Artigas y acordado con autoridades provinciales.
+    provenance_summary: Original firmado de cinco fojas conservado en el Archivo General de la Nación.
+    textual_confidence: very_high
+    page_start: 52
+    page_end: 57
+    documentary_topics: [Distribución de tierras, Sociedad rural, Grupos marginados, Pueblos indígenas, Autoridad civil y militar]
+    learning_topics: [land-society-and-marginalized-groups, government-education-and-public-welfare]
+    priority: 100
+    review_status: reviewed
+    section_ids: [ART-012-record, ART-012-authorship, ART-012-context, ART-012-primary, ART-012-notes, ART-012-topics, ART-012-limitations, ART-012-sources]
+  - id: ART-013
+    title: Reglamento provisional de derechos para los puertos habilitados de Corrientes
+    display_title: Reglamento aduanero de 1816
+    date: 1816-04-25 / 1816-05-02
+    date_precision: range
+    place: Purificación y ciudad de Corrientes
+    document_type: Reglamento aduanero inserto en bando
+    historical_period: Sistema de los Pueblos Libres e invasión portuguesa inminente
+    issuing_authority: José Artigas y Cabildo Gobernador interino de Corrientes
+    recipient: Recaudadores, comerciantes y habitantes de los puertos de Corrientes
+    authorship_classification: issued_under_artigas_authority
+    relationship_to_artigas: Reglamento remitido bajo autoridad de Artigas y publicado por el Cabildo correntino.
+    provenance_summary: Copia del bando y reglamento; el original remitido por Artigas no fue localizado.
+    textual_confidence: high
+    page_start: 58
+    page_end: 63
+    documentary_topics: [Aduanas y comercio, Liga de los Pueblos Libres, Federalismo, Buenos Aires, Educación]
+    learning_topics: [economy-war-and-external-relations, pueblos-libres-and-provincial-relations, government-education-and-public-welfare]
+    priority: 95
+    review_status: reviewed
+    section_ids: [ART-013-record, ART-013-authorship, ART-013-context, ART-013-primary, ART-013-notes, ART-013-topics, ART-013-limitations, ART-013-sources]
+  - id: ART-014
+    title: Carta al Cabildo de Corrientes sobre historia de Norteamérica, vacuna y gobierno
+    display_title: Historia, vacuna y magistrados
+    date: "1816-05-02"
+    date_precision: exact
+    place: Purificación
+    document_type: Oficio de gobierno
+    historical_period: Administración regional desde Purificación
+    issuing_authority: José Artigas
+    recipient: Cabildo de Corrientes
+    authorship_classification: dictated_or_signed_by_artigas
+    relationship_to_artigas: Oficio escrito por José Monterroso y firmado por Artigas.
+    provenance_summary: Original secretarial conservado en el archivo capitular correntino.
+    textual_confidence: very_high
+    page_start: 64
+    page_end: 66
+    documentary_topics: [Educación, Aduanas y comercio, Gobierno republicano, Autoridad civil y militar]
+    learning_topics: [government-education-and-public-welfare, economy-war-and-external-relations]
+    priority: 90
+    review_status: reviewed
+    section_ids: [ART-014-record, ART-014-authorship, ART-014-context, ART-014-primary, ART-014-notes, ART-014-topics, ART-014-limitations, ART-014-sources]
+  - id: ART-015
+    title: Carta a Simón Bolívar sobre pabellón y corsarios de la República Oriental
+    display_title: Carta a Simón Bolívar
+    date: "1819-07-20"
+    date_precision: exact
+    place: Cuartel General; localidad no consignada
+    document_type: Carta diplomática y de guerra
+    historical_period: Guerra contra Portugal y actividad corsaria artiguista
+    issuing_authority: Atribuida a José Artigas
+    recipient: Simón Bolívar
+    authorship_classification: attributed_to_artigas
+    relationship_to_artigas: Atribuida a Artigas mediante una cadena de copia certificada; original no localizado por la edición.
+    provenance_summary: Publicación de 1921 basada en copia certificada en 1920; no consta signatura actual del original.
+    textual_confidence: medium
+    page_start: 67
+    page_end: 70
+    documentary_topics: [Libertad civil, Soberanía provincial, Liga de los Pueblos Libres, Aduanas y comercio]
+    learning_topics: [economy-war-and-external-relations, pueblos-libres-and-provincial-relations]
+    priority: 80
+    review_status: reviewed
+    section_ids: [ART-015-record, ART-015-authorship, ART-015-context, ART-015-primary, ART-015-notes, ART-015-topics, ART-015-limitations, ART-015-sources]
+
+sections:
+  # The ranges follow visible headings. Multiple headings on one physical page are
+  # separate sections and are audited through allowed_overlaps below.
+  - {id: ART-001-record, document_id: ART-001, corpus_parent: null, page_start: 10, page_end: 10, section_type: document_record, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-001-authorship, document_id: ART-001, corpus_parent: null, page_start: 10, page_end: 10, section_type: authorship_and_provenance, documentary_topics: [], learning_topics: [], priority: 50, review_status: reviewed}
+  - {id: ART-001-context, document_id: ART-001, corpus_parent: null, page_start: 10, page_end: 10, section_type: editorial_context, documentary_topics: [Buenos Aires], learning_topics: [sovereignty-and-legitimacy], priority: 40, review_status: reviewed}
+  - {id: ART-001-primary, document_id: ART-001, corpus_parent: null, page_start: 11, page_end: 11, section_type: primary_text, documentary_topics: [Buenos Aires, Libertad civil, Sociedad rural, Autoridad civil y militar], learning_topics: [sovereignty-and-legitimacy], priority: 100, review_status: reviewed}
+  - {id: ART-001-notes, document_id: ART-001, corpus_parent: null, page_start: 11, page_end: 11, section_type: reading_notes, documentary_topics: [], learning_topics: [], priority: 30, review_status: reviewed}
+  - {id: ART-001-topics, document_id: ART-001, corpus_parent: null, page_start: 11, page_end: 11, section_type: documentary_topics, documentary_topics: [Buenos Aires, Libertad civil, Sociedad rural, Autoridad civil y militar], learning_topics: [sovereignty-and-legitimacy], priority: 25, review_status: reviewed}
+  - {id: ART-001-limitations, document_id: ART-001, corpus_parent: null, page_start: 11, page_end: 12, section_type: documentary_limitations, documentary_topics: [], learning_topics: [], priority: 60, review_status: reviewed}
+  - {id: ART-001-sources, document_id: ART-001, corpus_parent: null, page_start: 12, page_end: 12, section_type: sources, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-002-record, document_id: ART-002, corpus_parent: null, page_start: 13, page_end: 13, section_type: document_record, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-002-authorship, document_id: ART-002, corpus_parent: null, page_start: 13, page_end: 13, section_type: authorship_and_provenance, documentary_topics: [], learning_topics: [], priority: 50, review_status: reviewed}
+  - {id: ART-002-context, document_id: ART-002, corpus_parent: null, page_start: 14, page_end: 14, section_type: editorial_context, documentary_topics: [Centralismo, Buenos Aires], learning_topics: [buenos-aires-centralism-and-union], priority: 40, review_status: reviewed}
+  - {id: ART-002-primary, document_id: ART-002, corpus_parent: null, page_start: 15, page_end: 15, section_type: primary_text, documentary_topics: [Soberanía popular, Soberanía provincial, Buenos Aires, Centralismo, Autoridad civil y militar], learning_topics: [sovereignty-and-legitimacy, buenos-aires-centralism-and-union], priority: 100, review_status: reviewed}
+  - {id: ART-002-notes, document_id: ART-002, corpus_parent: null, page_start: 15, page_end: 15, section_type: reading_notes, documentary_topics: [], learning_topics: [], priority: 30, review_status: reviewed}
+  - {id: ART-002-topics, document_id: ART-002, corpus_parent: null, page_start: 15, page_end: 15, section_type: documentary_topics, documentary_topics: [Soberanía popular, Soberanía provincial, Buenos Aires, Centralismo, Autoridad civil y militar], learning_topics: [sovereignty-and-legitimacy], priority: 25, review_status: reviewed}
+  - {id: ART-002-limitations, document_id: ART-002, corpus_parent: null, page_start: 15, page_end: 16, section_type: documentary_limitations, documentary_topics: [], learning_topics: [], priority: 60, review_status: reviewed}
+  - {id: ART-002-sources, document_id: ART-002, corpus_parent: null, page_start: 16, page_end: 16, section_type: sources, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-003-record, document_id: ART-003, corpus_parent: null, page_start: 17, page_end: 17, section_type: document_record, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-003-authorship, document_id: ART-003, corpus_parent: null, page_start: 17, page_end: 17, section_type: authorship_and_provenance, documentary_topics: [], learning_topics: [], priority: 50, review_status: reviewed}
+  - {id: ART-003-context, document_id: ART-003, corpus_parent: null, page_start: 17, page_end: 17, section_type: editorial_context, documentary_topics: [Soberanía popular, Buenos Aires], learning_topics: [sovereignty-and-legitimacy], priority: 40, review_status: reviewed}
+  - {id: ART-003-primary, document_id: ART-003, corpus_parent: null, page_start: 18, page_end: 19, section_type: primary_text, documentary_topics: [Soberanía popular, Soberanía provincial, Buenos Aires, Centralismo, Libertad civil], learning_topics: [sovereignty-and-legitimacy, buenos-aires-centralism-and-union], priority: 100, review_status: reviewed}
+  - {id: ART-003-notes, document_id: ART-003, corpus_parent: null, page_start: 20, page_end: 20, section_type: reading_notes, documentary_topics: [], learning_topics: [], priority: 30, review_status: reviewed}
+  - {id: ART-003-topics, document_id: ART-003, corpus_parent: null, page_start: 20, page_end: 20, section_type: documentary_topics, documentary_topics: [Soberanía popular, Soberanía provincial, Buenos Aires, Centralismo, Libertad civil], learning_topics: [sovereignty-and-legitimacy], priority: 25, review_status: reviewed}
+  - {id: ART-003-limitations, document_id: ART-003, corpus_parent: null, page_start: 20, page_end: 20, section_type: documentary_limitations, documentary_topics: [], learning_topics: [], priority: 60, review_status: reviewed}
+  - {id: ART-003-sources, document_id: ART-003, corpus_parent: null, page_start: 20, page_end: 20, section_type: sources, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-004-record, document_id: ART-004, corpus_parent: null, page_start: 21, page_end: 21, section_type: document_record, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-004-authorship, document_id: ART-004, corpus_parent: null, page_start: 21, page_end: 21, section_type: authorship_and_provenance, documentary_topics: [], learning_topics: [], priority: 50, review_status: reviewed}
+  - {id: ART-004-context, document_id: ART-004, corpus_parent: null, page_start: 21, page_end: 21, section_type: editorial_context, documentary_topics: [Soberanía popular, Federalismo], learning_topics: [sovereignty-and-legitimacy, federalism-and-provincial-autonomy], priority: 40, review_status: reviewed}
+  - {id: ART-004-primary, document_id: ART-004, corpus_parent: null, page_start: 22, page_end: 23, section_type: primary_text, documentary_topics: [Soberanía popular, Soberanía provincial, Federalismo, Buenos Aires, Centralismo], learning_topics: [sovereignty-and-legitimacy, federalism-and-provincial-autonomy], priority: 100, review_status: reviewed}
+  - {id: ART-004-notes, document_id: ART-004, corpus_parent: null, page_start: 23, page_end: 23, section_type: reading_notes, documentary_topics: [], learning_topics: [], priority: 30, review_status: reviewed}
+  - {id: ART-004-topics, document_id: ART-004, corpus_parent: null, page_start: 23, page_end: 23, section_type: documentary_topics, documentary_topics: [Soberanía popular, Soberanía provincial, Federalismo, Buenos Aires, Centralismo], learning_topics: [sovereignty-and-legitimacy], priority: 25, review_status: reviewed}
+  - {id: ART-004-limitations, document_id: ART-004, corpus_parent: null, page_start: 23, page_end: 23, section_type: documentary_limitations, documentary_topics: [], learning_topics: [], priority: 60, review_status: reviewed}
+  - {id: ART-004-sources, document_id: ART-004, corpus_parent: null, page_start: 23, page_end: 23, section_type: sources, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-005-record, document_id: ART-005, corpus_parent: null, page_start: 24, page_end: 24, section_type: document_record, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-005-authorship, document_id: ART-005, corpus_parent: null, page_start: 24, page_end: 24, section_type: authorship_and_provenance, documentary_topics: [], learning_topics: [], priority: 50, review_status: reviewed}
+  - {id: ART-005-context, document_id: ART-005, corpus_parent: null, page_start: 25, page_end: 25, section_type: editorial_context, documentary_topics: [Federalismo, Centralismo], learning_topics: [instructions-republic-and-liberties], priority: 40, review_status: reviewed}
+  - {id: ART-005-primary, document_id: ART-005, corpus_parent: null, page_start: 26, page_end: 27, section_type: primary_text, documentary_topics: [Soberanía provincial, Federalismo, Gobierno republicano, Libertad civil, Libertad religiosa, Centralismo, Buenos Aires, Aduanas y comercio], learning_topics: [instructions-republic-and-liberties, federalism-and-provincial-autonomy], priority: 100, review_status: reviewed}
+  - {id: ART-005-notes, document_id: ART-005, corpus_parent: null, page_start: 27, page_end: 27, section_type: reading_notes, documentary_topics: [], learning_topics: [], priority: 30, review_status: reviewed}
+  - {id: ART-005-topics, document_id: ART-005, corpus_parent: null, page_start: 27, page_end: 27, section_type: documentary_topics, documentary_topics: [Soberanía provincial, Federalismo, Gobierno republicano, Libertad civil, Libertad religiosa, Centralismo, Buenos Aires, Aduanas y comercio], learning_topics: [instructions-republic-and-liberties], priority: 25, review_status: reviewed}
+  - {id: ART-005-limitations, document_id: ART-005, corpus_parent: null, page_start: 28, page_end: 28, section_type: documentary_limitations, documentary_topics: [], learning_topics: [], priority: 60, review_status: reviewed}
+  - {id: ART-005-sources, document_id: ART-005, corpus_parent: null, page_start: 28, page_end: 28, section_type: sources, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-006-record, document_id: ART-006, corpus_parent: null, page_start: 29, page_end: 29, section_type: document_record, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-006-authorship, document_id: ART-006, corpus_parent: null, page_start: 29, page_end: 29, section_type: authorship_and_provenance, documentary_topics: [], learning_topics: [], priority: 50, review_status: reviewed}
+  - {id: ART-006-context, document_id: ART-006, corpus_parent: null, page_start: 29, page_end: 30, section_type: editorial_context, documentary_topics: [Soberanía popular, Federalismo], learning_topics: [sovereignty-and-legitimacy, pueblos-libres-and-provincial-relations], priority: 40, review_status: reviewed}
+  - {id: ART-006-primary, document_id: ART-006, corpus_parent: null, page_start: 31, page_end: 32, section_type: primary_text, documentary_topics: [Soberanía popular, Soberanía provincial, Federalismo, Liga de los Pueblos Libres, Centralismo, Buenos Aires], learning_topics: [sovereignty-and-legitimacy, pueblos-libres-and-provincial-relations], priority: 100, review_status: reviewed}
+  - {id: ART-006-notes, document_id: ART-006, corpus_parent: null, page_start: 32, page_end: 32, section_type: reading_notes, documentary_topics: [], learning_topics: [], priority: 30, review_status: reviewed}
+  - {id: ART-006-topics, document_id: ART-006, corpus_parent: null, page_start: 33, page_end: 33, section_type: documentary_topics, documentary_topics: [Soberanía popular, Soberanía provincial, Federalismo, Liga de los Pueblos Libres, Centralismo, Buenos Aires], learning_topics: [pueblos-libres-and-provincial-relations], priority: 25, review_status: reviewed}
+  - {id: ART-006-limitations, document_id: ART-006, corpus_parent: null, page_start: 33, page_end: 33, section_type: documentary_limitations, documentary_topics: [], learning_topics: [], priority: 60, review_status: reviewed}
+  - {id: ART-006-sources, document_id: ART-006, corpus_parent: null, page_start: 33, page_end: 33, section_type: sources, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-007-record, document_id: ART-007, corpus_parent: null, page_start: 34, page_end: 34, section_type: document_record, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-007-authorship, document_id: ART-007, corpus_parent: null, page_start: 34, page_end: 34, section_type: authorship_and_provenance, documentary_topics: [], learning_topics: [], priority: 50, review_status: reviewed}
+  - {id: ART-007-context, document_id: ART-007, corpus_parent: null, page_start: 34, page_end: 34, section_type: editorial_context, documentary_topics: [Pueblos indígenas, Grupos marginados], learning_topics: [land-society-and-marginalized-groups], priority: 40, review_status: reviewed}
+  - {id: ART-007-primary, document_id: ART-007, corpus_parent: null, page_start: 35, page_end: 35, section_type: primary_text, documentary_topics: [Pueblos indígenas, Grupos marginados, Soberanía popular, Soberanía provincial], learning_topics: [land-society-and-marginalized-groups, sovereignty-and-legitimacy], priority: 100, review_status: reviewed}
+  - {id: ART-007-notes, document_id: ART-007, corpus_parent: null, page_start: 35, page_end: 35, section_type: reading_notes, documentary_topics: [], learning_topics: [], priority: 30, review_status: reviewed}
+  - {id: ART-007-topics, document_id: ART-007, corpus_parent: null, page_start: 36, page_end: 36, section_type: documentary_topics, documentary_topics: [Pueblos indígenas, Grupos marginados, Soberanía popular, Soberanía provincial], learning_topics: [land-society-and-marginalized-groups], priority: 25, review_status: reviewed}
+  - {id: ART-007-limitations, document_id: ART-007, corpus_parent: null, page_start: 36, page_end: 36, section_type: documentary_limitations, documentary_topics: [], learning_topics: [], priority: 60, review_status: reviewed}
+  - {id: ART-007-sources, document_id: ART-007, corpus_parent: null, page_start: 36, page_end: 36, section_type: sources, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-008-record, document_id: ART-008, corpus_parent: null, page_start: 37, page_end: 37, section_type: document_record, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-008-authorship, document_id: ART-008, corpus_parent: null, page_start: 37, page_end: 37, section_type: authorship_and_provenance, documentary_topics: [], learning_topics: [], priority: 50, review_status: reviewed}
+  - {id: ART-008-context, document_id: ART-008, corpus_parent: null, page_start: 37, page_end: 37, section_type: editorial_context, documentary_topics: [Federalismo, Buenos Aires], learning_topics: [federalism-and-provincial-autonomy, buenos-aires-centralism-and-union], priority: 40, review_status: reviewed}
+  - {id: ART-008-primary, document_id: ART-008, corpus_parent: null, page_start: 38, page_end: 39, section_type: primary_text, documentary_topics: [Soberanía provincial, Federalismo, Buenos Aires, Centralismo, Liga de los Pueblos Libres, Aduanas y comercio, Sociedad rural], learning_topics: [federalism-and-provincial-autonomy, pueblos-libres-and-provincial-relations], priority: 100, review_status: reviewed}
+  - {id: ART-008-notes, document_id: ART-008, corpus_parent: null, page_start: 39, page_end: 39, section_type: reading_notes, documentary_topics: [], learning_topics: [], priority: 30, review_status: reviewed}
+  - {id: ART-008-topics, document_id: ART-008, corpus_parent: null, page_start: 40, page_end: 40, section_type: documentary_topics, documentary_topics: [Soberanía provincial, Federalismo, Buenos Aires, Centralismo, Liga de los Pueblos Libres, Aduanas y comercio, Sociedad rural], learning_topics: [pueblos-libres-and-provincial-relations], priority: 25, review_status: reviewed}
+  - {id: ART-008-limitations, document_id: ART-008, corpus_parent: null, page_start: 40, page_end: 40, section_type: documentary_limitations, documentary_topics: [], learning_topics: [], priority: 60, review_status: reviewed}
+  - {id: ART-008-sources, document_id: ART-008, corpus_parent: null, page_start: 40, page_end: 40, section_type: sources, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-009-record, document_id: ART-009, corpus_parent: null, page_start: 41, page_end: 41, section_type: document_record, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-009-authorship, document_id: ART-009, corpus_parent: null, page_start: 41, page_end: 41, section_type: authorship_and_provenance, documentary_topics: [], learning_topics: [], priority: 50, review_status: reviewed}
+  - {id: ART-009-context, document_id: ART-009, corpus_parent: null, page_start: 41, page_end: 42, section_type: editorial_context, documentary_topics: [Liga de los Pueblos Libres, Federalismo], learning_topics: [pueblos-libres-and-provincial-relations], priority: 40, review_status: reviewed}
+  - {id: ART-009-primary, document_id: ART-009, corpus_parent: null, page_start: 43, page_end: 43, section_type: primary_text, documentary_topics: [Liga de los Pueblos Libres, Federalismo, Soberanía provincial, Buenos Aires, Centralismo], learning_topics: [pueblos-libres-and-provincial-relations, federalism-and-provincial-autonomy], priority: 100, review_status: reviewed}
+  - {id: ART-009-notes, document_id: ART-009, corpus_parent: null, page_start: 43, page_end: 43, section_type: reading_notes, documentary_topics: [], learning_topics: [], priority: 30, review_status: reviewed}
+  - {id: ART-009-topics, document_id: ART-009, corpus_parent: null, page_start: 43, page_end: 43, section_type: documentary_topics, documentary_topics: [Liga de los Pueblos Libres, Federalismo, Soberanía provincial, Buenos Aires, Centralismo], learning_topics: [pueblos-libres-and-provincial-relations], priority: 25, review_status: reviewed}
+  - {id: ART-009-limitations, document_id: ART-009, corpus_parent: null, page_start: 43, page_end: 43, section_type: documentary_limitations, documentary_topics: [], learning_topics: [], priority: 60, review_status: reviewed}
+  - {id: ART-009-sources, document_id: ART-009, corpus_parent: null, page_start: 44, page_end: 44, section_type: sources, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-010-record, document_id: ART-010, corpus_parent: null, page_start: 45, page_end: 45, section_type: document_record, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-010-authorship, document_id: ART-010, corpus_parent: null, page_start: 45, page_end: 45, section_type: authorship_and_provenance, documentary_topics: [], learning_topics: [], priority: 50, review_status: reviewed}
+  - {id: ART-010-context, document_id: ART-010, corpus_parent: null, page_start: 46, page_end: 46, section_type: editorial_context, documentary_topics: [Grupos marginados, Autoridad civil y militar], learning_topics: [land-society-and-marginalized-groups], priority: 40, review_status: reviewed}
+  - {id: ART-010-primary, document_id: ART-010, corpus_parent: null, page_start: 47, page_end: 48, section_type: primary_text, documentary_topics: [Grupos marginados, Aduanas y comercio, Autoridad civil y militar, Sociedad rural, Buenos Aires], learning_topics: [land-society-and-marginalized-groups, government-education-and-public-welfare], priority: 100, review_status: reviewed}
+  - {id: ART-010-notes, document_id: ART-010, corpus_parent: null, page_start: 48, page_end: 48, section_type: reading_notes, documentary_topics: [], learning_topics: [], priority: 30, review_status: reviewed}
+  - {id: ART-010-topics, document_id: ART-010, corpus_parent: null, page_start: 48, page_end: 48, section_type: documentary_topics, documentary_topics: [Grupos marginados, Aduanas y comercio, Autoridad civil y militar, Sociedad rural, Buenos Aires], learning_topics: [land-society-and-marginalized-groups], priority: 25, review_status: reviewed}
+  - {id: ART-010-limitations, document_id: ART-010, corpus_parent: null, page_start: 48, page_end: 48, section_type: documentary_limitations, documentary_topics: [], learning_topics: [], priority: 60, review_status: reviewed}
+  - {id: ART-010-sources, document_id: ART-010, corpus_parent: null, page_start: 48, page_end: 48, section_type: sources, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-011-record, document_id: ART-011, corpus_parent: null, page_start: 49, page_end: 49, section_type: document_record, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-011-authorship, document_id: ART-011, corpus_parent: null, page_start: 49, page_end: 49, section_type: authorship_and_provenance, documentary_topics: [], learning_topics: [], priority: 50, review_status: reviewed}
+  - {id: ART-011-context, document_id: ART-011, corpus_parent: null, page_start: 49, page_end: 49, section_type: editorial_context, documentary_topics: [Educación, Biblioteca pública], learning_topics: [government-education-and-public-welfare], priority: 40, review_status: reviewed}
+  - {id: ART-011-primary, document_id: ART-011, corpus_parent: null, page_start: 50, page_end: 50, section_type: primary_text, documentary_topics: [Educación, Biblioteca pública, Autoridad civil y militar], learning_topics: [government-education-and-public-welfare], priority: 100, review_status: reviewed}
+  - {id: ART-011-notes, document_id: ART-011, corpus_parent: null, page_start: 50, page_end: 50, section_type: reading_notes, documentary_topics: [], learning_topics: [], priority: 30, review_status: reviewed}
+  - {id: ART-011-topics, document_id: ART-011, corpus_parent: null, page_start: 50, page_end: 50, section_type: documentary_topics, documentary_topics: [Educación, Biblioteca pública, Autoridad civil y militar], learning_topics: [government-education-and-public-welfare], priority: 25, review_status: reviewed}
+  - {id: ART-011-limitations, document_id: ART-011, corpus_parent: null, page_start: 51, page_end: 51, section_type: documentary_limitations, documentary_topics: [], learning_topics: [], priority: 60, review_status: reviewed}
+  - {id: ART-011-sources, document_id: ART-011, corpus_parent: null, page_start: 51, page_end: 51, section_type: sources, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-012-record, document_id: ART-012, corpus_parent: null, page_start: 52, page_end: 52, section_type: document_record, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-012-authorship, document_id: ART-012, corpus_parent: null, page_start: 52, page_end: 52, section_type: authorship_and_provenance, documentary_topics: [], learning_topics: [], priority: 50, review_status: reviewed}
+  - {id: ART-012-context, document_id: ART-012, corpus_parent: null, page_start: 53, page_end: 53, section_type: editorial_context, documentary_topics: [Distribución de tierras, Grupos marginados], learning_topics: [land-society-and-marginalized-groups], priority: 40, review_status: reviewed}
+  - {id: ART-012-primary, document_id: ART-012, corpus_parent: null, page_start: 54, page_end: 56, section_type: primary_text, documentary_topics: [Distribución de tierras, Sociedad rural, Grupos marginados, Pueblos indígenas, Autoridad civil y militar], learning_topics: [land-society-and-marginalized-groups, government-education-and-public-welfare], priority: 100, review_status: reviewed}
+  - {id: ART-012-notes, document_id: ART-012, corpus_parent: null, page_start: 56, page_end: 56, section_type: reading_notes, documentary_topics: [], learning_topics: [], priority: 30, review_status: reviewed}
+  - {id: ART-012-topics, document_id: ART-012, corpus_parent: null, page_start: 57, page_end: 57, section_type: documentary_topics, documentary_topics: [Distribución de tierras, Sociedad rural, Grupos marginados, Pueblos indígenas, Autoridad civil y militar], learning_topics: [land-society-and-marginalized-groups], priority: 25, review_status: reviewed}
+  - {id: ART-012-limitations, document_id: ART-012, corpus_parent: null, page_start: 57, page_end: 57, section_type: documentary_limitations, documentary_topics: [], learning_topics: [], priority: 60, review_status: reviewed}
+  - {id: ART-012-sources, document_id: ART-012, corpus_parent: null, page_start: 57, page_end: 57, section_type: sources, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-013-record, document_id: ART-013, corpus_parent: null, page_start: 58, page_end: 58, section_type: document_record, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-013-authorship, document_id: ART-013, corpus_parent: null, page_start: 58, page_end: 58, section_type: authorship_and_provenance, documentary_topics: [], learning_topics: [], priority: 50, review_status: reviewed}
+  - {id: ART-013-context, document_id: ART-013, corpus_parent: null, page_start: 59, page_end: 59, section_type: editorial_context, documentary_topics: [Aduanas y comercio, Federalismo], learning_topics: [economy-war-and-external-relations, pueblos-libres-and-provincial-relations], priority: 40, review_status: reviewed}
+  - {id: ART-013-primary, document_id: ART-013, corpus_parent: null, page_start: 60, page_end: 62, section_type: primary_text, documentary_topics: [Aduanas y comercio, Liga de los Pueblos Libres, Federalismo, Buenos Aires, Educación], learning_topics: [economy-war-and-external-relations, pueblos-libres-and-provincial-relations], priority: 100, review_status: reviewed}
+  - {id: ART-013-notes, document_id: ART-013, corpus_parent: null, page_start: 62, page_end: 62, section_type: reading_notes, documentary_topics: [], learning_topics: [], priority: 30, review_status: reviewed}
+  - {id: ART-013-topics, document_id: ART-013, corpus_parent: null, page_start: 63, page_end: 63, section_type: documentary_topics, documentary_topics: [Aduanas y comercio, Liga de los Pueblos Libres, Federalismo, Buenos Aires, Educación], learning_topics: [economy-war-and-external-relations], priority: 25, review_status: reviewed}
+  - {id: ART-013-limitations, document_id: ART-013, corpus_parent: null, page_start: 63, page_end: 63, section_type: documentary_limitations, documentary_topics: [], learning_topics: [], priority: 60, review_status: reviewed}
+  - {id: ART-013-sources, document_id: ART-013, corpus_parent: null, page_start: 63, page_end: 63, section_type: sources, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-014-record, document_id: ART-014, corpus_parent: null, page_start: 64, page_end: 64, section_type: document_record, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-014-authorship, document_id: ART-014, corpus_parent: null, page_start: 64, page_end: 64, section_type: authorship_and_provenance, documentary_topics: [], learning_topics: [], priority: 50, review_status: reviewed}
+  - {id: ART-014-context, document_id: ART-014, corpus_parent: null, page_start: 64, page_end: 64, section_type: editorial_context, documentary_topics: [Educación, Gobierno republicano], learning_topics: [government-education-and-public-welfare], priority: 40, review_status: reviewed}
+  - {id: ART-014-primary, document_id: ART-014, corpus_parent: null, page_start: 65, page_end: 65, section_type: primary_text, documentary_topics: [Educación, Aduanas y comercio, Gobierno republicano, Autoridad civil y militar], learning_topics: [government-education-and-public-welfare, economy-war-and-external-relations], priority: 100, review_status: reviewed}
+  - {id: ART-014-notes, document_id: ART-014, corpus_parent: null, page_start: 65, page_end: 65, section_type: reading_notes, documentary_topics: [], learning_topics: [], priority: 30, review_status: reviewed}
+  - {id: ART-014-topics, document_id: ART-014, corpus_parent: null, page_start: 65, page_end: 65, section_type: documentary_topics, documentary_topics: [Educación, Aduanas y comercio, Gobierno republicano, Autoridad civil y militar], learning_topics: [government-education-and-public-welfare], priority: 25, review_status: reviewed}
+  - {id: ART-014-limitations, document_id: ART-014, corpus_parent: null, page_start: 65, page_end: 65, section_type: documentary_limitations, documentary_topics: [], learning_topics: [], priority: 60, review_status: reviewed}
+  - {id: ART-014-sources, document_id: ART-014, corpus_parent: null, page_start: 66, page_end: 66, section_type: sources, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-015-record, document_id: ART-015, corpus_parent: null, page_start: 67, page_end: 67, section_type: document_record, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+  - {id: ART-015-authorship, document_id: ART-015, corpus_parent: null, page_start: 67, page_end: 67, section_type: authorship_and_provenance, documentary_topics: [], learning_topics: [], priority: 50, review_status: reviewed}
+  - {id: ART-015-context, document_id: ART-015, corpus_parent: null, page_start: 68, page_end: 68, section_type: editorial_context, documentary_topics: [Liga de los Pueblos Libres, Aduanas y comercio], learning_topics: [economy-war-and-external-relations], priority: 40, review_status: reviewed}
+  - {id: ART-015-primary, document_id: ART-015, corpus_parent: null, page_start: 69, page_end: 69, section_type: primary_text, documentary_topics: [Libertad civil, Soberanía provincial, Liga de los Pueblos Libres, Aduanas y comercio], learning_topics: [economy-war-and-external-relations, pueblos-libres-and-provincial-relations], priority: 100, review_status: reviewed}
+  - {id: ART-015-notes, document_id: ART-015, corpus_parent: null, page_start: 69, page_end: 69, section_type: reading_notes, documentary_topics: [], learning_topics: [], priority: 30, review_status: reviewed}
+  - {id: ART-015-topics, document_id: ART-015, corpus_parent: null, page_start: 69, page_end: 69, section_type: documentary_topics, documentary_topics: [Libertad civil, Soberanía provincial, Liga de los Pueblos Libres, Aduanas y comercio], learning_topics: [economy-war-and-external-relations], priority: 25, review_status: reviewed}
+  - {id: ART-015-limitations, document_id: ART-015, corpus_parent: null, page_start: 69, page_end: 69, section_type: documentary_limitations, documentary_topics: [], learning_topics: [], priority: 60, review_status: reviewed}
+  - {id: ART-015-sources, document_id: ART-015, corpus_parent: null, page_start: 70, page_end: 70, section_type: sources, documentary_topics: [], learning_topics: [], priority: 20, review_status: reviewed}
+
+excerpts:
+  - {id: ART-001-excerpt-01, document_id: ART-001, page: 11, section_id: ART-001-primary, evidence_type: primary_text, text: "Excma. Junta de Buenos Ayres, que tan dignamente nos regenta.", topics: [Buenos Aires], concepts: [Buenos Aires, conducción revolucionaria], priority: 80, review_status: reviewed}
+  - {id: ART-002-excerpt-01, document_id: ART-002, page: 15, section_id: ART-002-primary, evidence_type: primary_text, text: "La soberanía particular de los pueblos sera precisam. declarada y ostentada, como objeto unico de ntra revolucion.", topics: [Soberanía popular, Soberanía provincial], concepts: [soberanía de los pueblos, autonomía], priority: 90, review_status: reviewed}
+  - {id: ART-003-excerpt-01, document_id: ART-003, page: 18, section_id: ART-003-primary, evidence_type: primary_text, text: "Mi autoridad emana de vosotros, y ella sesa por vra presencia Soberana.", topics: [Soberanía popular], concepts: [legitimidad, soberanía popular], priority: 100, review_status: reviewed}
+  - {id: ART-004-excerpt-01, document_id: ART-004, page: 22, section_id: ART-004-primary, evidence_type: primary_text, text: "presentado asi el Pueblo Oriental como Soberano, despues de haverse sersiorado bastantem. de las ordenes", topics: [Soberanía popular, Soberanía provincial], concepts: [pueblo soberano, reconocimiento condicionado], priority: 90, review_status: reviewed}
+  - {id: ART-005-excerpt-01, document_id: ART-005, page: 26, section_id: ART-005-primary, evidence_type: primary_text, text: "No admitirá otro Sistema que el de Confederacion para el pacto recíproco con las Provincias que formen nuestro Estado.", topics: [Soberanía provincial, Federalismo], concepts: [confederación, pacto recíproco], priority: 100, review_status: reviewed}
+  - {id: ART-005-excerpt-02, document_id: ART-005, page: 26, section_id: ART-005-primary, evidence_type: primary_text, text: "Promoverá la Libertad civil, y Religiosa en toda su extencion imaginable.", topics: [Libertad civil, Libertad religiosa], concepts: [libertad civil, libertad religiosa], priority: 95, review_status: reviewed}
+  - {id: ART-005-excerpt-03, document_id: ART-005, page: 26, section_id: ART-005-primary, evidence_type: primary_text, text: "Asi este como aquel se dividirán en poder Legislativo, Executivo, y Judicial.", topics: [Gobierno republicano], concepts: [separación de poderes, república], priority: 90, review_status: reviewed}
+  - {id: ART-005-excerpt-04, document_id: ART-005, page: 27, section_id: ART-005-primary, evidence_type: primary_text, text: "Que presisa é indispensable, sea fuera de B.s A.s donde recida el citio del Govierno de las Provincias vnidas.", topics: [Buenos Aires, Centralismo], concepts: [capital federal, centralismo porteño], priority: 95, review_status: reviewed}
+  - {id: ART-005-excerpt-05, document_id: ART-005, page: 27, section_id: ART-005-primary, evidence_type: primary_text, text: "ni los Barcos destinados de esta Provincia á otra serán obligados á entrar á anclar, ó pagar derechos en otra.", topics: [Aduanas y comercio], concepts: [libertad portuaria, derechos], priority: 85, review_status: reviewed}
+  - {id: ART-006-excerpt-01, document_id: ART-006, page: 31, section_id: ART-006-primary, evidence_type: primary_text, text: "Es preciso pues, q. ese pueblo puesto en el pleno goze de sus dros restablezca su dignidad y grandeza entrando á su exercicio;", topics: [Soberanía popular], concepts: [derechos provinciales, organización], priority: 90, review_status: reviewed}
+  - {id: ART-007-excerpt-01, document_id: ART-007, page: 35, section_id: ART-007-primary, evidence_type: primary_text, text: "Yo deseo q. los Indios en sus Pueblos se goviernen p. si p. q. cuiden de sus intereses como nosotros delos nros.", topics: [Pueblos indígenas, Grupos marginados, Soberanía popular, Soberanía provincial], concepts: [autogobierno indígena, intereses comunitarios], priority: 100, review_status: reviewed}
+  - {id: ART-008-excerpt-01, document_id: ART-008, page: 38, section_id: ART-008-primary, evidence_type: primary_text, text: "Toda Provincia tiene igual dignidad, iguales privilegios y derechos, y cada una renunciará el proyecto de subyugar á otra", topics: [Soberanía provincial, Centralismo], concepts: [igualdad provincial, no subyugación], priority: 100, review_status: reviewed}
+  - {id: ART-009-excerpt-01, document_id: ART-009, page: 43, section_id: ART-009-primary, evidence_type: primary_text, text: "reuniendo á este fin el congreso general de los pueblos y provincias q. se hallan bajo mis ordenes y proteccion", topics: [Soberanía provincial], concepts: [congreso, diputación provincial], priority: 90, review_status: reviewed}
+  - {id: ART-010-excerpt-01, document_id: ART-010, page: 47, section_id: ART-010-primary, evidence_type: primary_text, text: "Los ezclavos de q. echó mano el Gob. anterior p. seguridad de esa Plasa, deben conservar su Libertad, y mantenerse en serv. de ella misma.", topics: [Grupos marginados, Autoridad civil y militar], concepts: [libertad de esclavizados, servicio militar], priority: 100, review_status: reviewed}
+  - {id: ART-011-excerpt-01, document_id: ART-011, page: 50, section_id: ART-011-primary, evidence_type: primary_text, text: "Conosco las ventajas de una Biblioteca publica, y espero q. VS. cooperará con su esfuerzo, é influxo á perfeccionarla", topics: [Educación, Biblioteca pública], concepts: [biblioteca pública, instrucción], priority: 100, review_status: reviewed}
+  - {id: ART-012-excerpt-01, document_id: ART-012, page: 54, section_id: ART-012-primary, evidence_type: primary_text, text: "los mas infelices Seran los mas previlegiados.", topics: [Grupos marginados], concepts: [prioridad social, distribución], priority: 100, review_status: reviewed}
+  - {id: ART-012-excerpt-02, document_id: ART-012, page: 54, section_id: ART-012-primary, evidence_type: primary_text, text: "los Negros Libres; Los Sambos de esta clase, los Indios, y los Criollos pobres todos podran Ser agraciados en Suertes de Estancia", topics: [Distribución de tierras, Sociedad rural, Grupos marginados, Pueblos indígenas], concepts: [beneficiarios, suertes de estancia], priority: 95, review_status: reviewed}
+  - {id: ART-012-excerpt-03, document_id: ART-012, page: 54, section_id: ART-012-primary, evidence_type: primary_text, text: "El S.or Alc.e Prov.l á demas de Sus facultades ordinarias, queda autorizado p. distribuir Terrenos, y velar Sobre la Tranquilidad del Vecindario", topics: [Distribución de tierras, Autoridad civil y militar], concepts: [autoridad provincial, policía de campaña], priority: 90, review_status: reviewed}
+  - {id: ART-013-excerpt-01, document_id: ART-013, page: 60, section_id: ART-013-primary, evidence_type: primary_text, text: "Los que vengan de los Puertos, que reconocen la presente federacion, nada pagarán", topics: [Aduanas y comercio, Liga de los Pueblos Libres, Federalismo], concepts: [preferencia confederal, derechos aduaneros], priority: 100, review_status: reviewed}
+  - {id: ART-013-excerpt-02, document_id: ART-013, page: 60, section_id: ART-013-primary, evidence_type: primary_text, text: "los efectos de vltramar, que vengan de Buen.s A.s y Puertos de su Dependencia pagarán vn 25 p.r c.to sobre el aforo de sus Guias.", topics: [Buenos Aires, Aduanas y comercio], concepts: [arancel, Buenos Aires], priority: 95, review_status: reviewed}
+  - {id: ART-013-excerpt-03, document_id: ART-013, page: 61, section_id: ART-013-primary, evidence_type: primary_text, text: "Los Libros, y Todo instrumento de Artes y ciencias.", topics: [Educación], concepts: [libros, ciencias], priority: 90, review_status: reviewed}
+  - {id: ART-014-excerpt-01, document_id: ART-014, page: 65, section_id: ART-014-primary, evidence_type: primary_text, text: "Tengo p. remitir a V.S. el compendio dela historia de Norte America, ancioso de q. sus luces basten á esclarecer las ideas de esos Magistrados", topics: [Educación, Gobierno republicano], concepts: [formación de magistrados, Norteamérica], priority: 100, review_status: reviewed}
+  - {id: ART-015-excerpt-01, document_id: ART-015, page: 69, section_id: ART-015-primary, evidence_type: primary_text, text: "Ruego a V.E. que ellos y sus presas tengan el mayor asilo en los Puertos y entre la Escuadra de su mando; que su Pabellon sea respetado", topics: [Aduanas y comercio], concepts: [corso, pabellón, relaciones exteriores], priority: 100, review_status: reviewed}
+
+# Filled from the explicitly curated section ranges. Each entry identifies one
+# exact pair and all physical pages shared by that pair.
+allowed_overlaps:
+  - {section_ids: [ART-001-record, ART-001-authorship], pages: [10], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-001-record, ART-001-context], pages: [10], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-001-authorship, ART-001-context], pages: [10], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-001-primary, ART-001-notes], pages: [11], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-001-primary, ART-001-topics], pages: [11], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-001-primary, ART-001-limitations], pages: [11], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-001-notes, ART-001-topics], pages: [11], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-001-notes, ART-001-limitations], pages: [11], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-001-topics, ART-001-limitations], pages: [11], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-001-limitations, ART-001-sources], pages: [12], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-002-record, ART-002-authorship], pages: [13], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-002-primary, ART-002-notes], pages: [15], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-002-primary, ART-002-topics], pages: [15], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-002-primary, ART-002-limitations], pages: [15], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-002-notes, ART-002-topics], pages: [15], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-002-notes, ART-002-limitations], pages: [15], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-002-topics, ART-002-limitations], pages: [15], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-002-limitations, ART-002-sources], pages: [16], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-003-record, ART-003-authorship], pages: [17], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-003-record, ART-003-context], pages: [17], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-003-authorship, ART-003-context], pages: [17], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-003-notes, ART-003-topics], pages: [20], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-003-notes, ART-003-limitations], pages: [20], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-003-notes, ART-003-sources], pages: [20], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-003-topics, ART-003-limitations], pages: [20], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-003-topics, ART-003-sources], pages: [20], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-003-limitations, ART-003-sources], pages: [20], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-004-record, ART-004-authorship], pages: [21], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-004-record, ART-004-context], pages: [21], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-004-authorship, ART-004-context], pages: [21], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-004-primary, ART-004-notes], pages: [23], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-004-primary, ART-004-topics], pages: [23], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-004-primary, ART-004-limitations], pages: [23], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-004-primary, ART-004-sources], pages: [23], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-004-notes, ART-004-topics], pages: [23], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-004-notes, ART-004-limitations], pages: [23], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-004-notes, ART-004-sources], pages: [23], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-004-topics, ART-004-limitations], pages: [23], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-004-topics, ART-004-sources], pages: [23], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-004-limitations, ART-004-sources], pages: [23], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-005-record, ART-005-authorship], pages: [24], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-005-primary, ART-005-notes], pages: [27], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-005-primary, ART-005-topics], pages: [27], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-005-notes, ART-005-topics], pages: [27], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-005-limitations, ART-005-sources], pages: [28], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-006-record, ART-006-authorship], pages: [29], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-006-record, ART-006-context], pages: [29], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-006-authorship, ART-006-context], pages: [29], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-006-primary, ART-006-notes], pages: [32], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-006-topics, ART-006-limitations], pages: [33], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-006-topics, ART-006-sources], pages: [33], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-006-limitations, ART-006-sources], pages: [33], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-007-record, ART-007-authorship], pages: [34], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-007-record, ART-007-context], pages: [34], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-007-authorship, ART-007-context], pages: [34], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-007-primary, ART-007-notes], pages: [35], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-007-topics, ART-007-limitations], pages: [36], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-007-topics, ART-007-sources], pages: [36], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-007-limitations, ART-007-sources], pages: [36], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-008-record, ART-008-authorship], pages: [37], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-008-record, ART-008-context], pages: [37], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-008-authorship, ART-008-context], pages: [37], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-008-primary, ART-008-notes], pages: [39], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-008-topics, ART-008-limitations], pages: [40], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-008-topics, ART-008-sources], pages: [40], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-008-limitations, ART-008-sources], pages: [40], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-009-record, ART-009-authorship], pages: [41], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-009-record, ART-009-context], pages: [41], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-009-authorship, ART-009-context], pages: [41], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-009-primary, ART-009-notes], pages: [43], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-009-primary, ART-009-topics], pages: [43], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-009-primary, ART-009-limitations], pages: [43], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-009-notes, ART-009-topics], pages: [43], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-009-notes, ART-009-limitations], pages: [43], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-009-topics, ART-009-limitations], pages: [43], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-010-record, ART-010-authorship], pages: [45], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-010-primary, ART-010-notes], pages: [48], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-010-primary, ART-010-topics], pages: [48], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-010-primary, ART-010-limitations], pages: [48], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-010-primary, ART-010-sources], pages: [48], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-010-notes, ART-010-topics], pages: [48], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-010-notes, ART-010-limitations], pages: [48], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-010-notes, ART-010-sources], pages: [48], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-010-topics, ART-010-limitations], pages: [48], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-010-topics, ART-010-sources], pages: [48], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-010-limitations, ART-010-sources], pages: [48], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-011-record, ART-011-authorship], pages: [49], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-011-record, ART-011-context], pages: [49], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-011-authorship, ART-011-context], pages: [49], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-011-primary, ART-011-notes], pages: [50], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-011-primary, ART-011-topics], pages: [50], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-011-notes, ART-011-topics], pages: [50], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-011-limitations, ART-011-sources], pages: [51], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-012-record, ART-012-authorship], pages: [52], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-012-primary, ART-012-notes], pages: [56], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-012-topics, ART-012-limitations], pages: [57], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-012-topics, ART-012-sources], pages: [57], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-012-limitations, ART-012-sources], pages: [57], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-013-record, ART-013-authorship], pages: [58], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-013-primary, ART-013-notes], pages: [62], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-013-topics, ART-013-limitations], pages: [63], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-013-topics, ART-013-sources], pages: [63], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-013-limitations, ART-013-sources], pages: [63], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-014-record, ART-014-authorship], pages: [64], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-014-record, ART-014-context], pages: [64], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-014-authorship, ART-014-context], pages: [64], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-014-primary, ART-014-notes], pages: [65], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-014-primary, ART-014-topics], pages: [65], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-014-primary, ART-014-limitations], pages: [65], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-014-notes, ART-014-topics], pages: [65], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-014-notes, ART-014-limitations], pages: [65], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-014-topics, ART-014-limitations], pages: [65], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-015-record, ART-015-authorship], pages: [67], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-015-primary, ART-015-notes], pages: [69], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-015-primary, ART-015-topics], pages: [69], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-015-primary, ART-015-limitations], pages: [69], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-015-notes, ART-015-topics], pages: [69], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-015-notes, ART-015-limitations], pages: [69], reason: La página física contiene ambos encabezados editoriales.}
+  - {section_ids: [ART-015-topics, ART-015-limitations], pages: [69], reason: La página física contiene ambos encabezados editoriales.}

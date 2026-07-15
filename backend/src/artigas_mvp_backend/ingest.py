@@ -13,6 +13,9 @@ from typing import Any, TextIO
 
 from artigas_mvp_backend.config import load_backend_dotenv
 
+FILE_SEARCH_MAX_TOKENS_PER_CHUNK = 400
+FILE_SEARCH_MAX_OVERLAP_TOKENS = 60
+
 
 class IngestionError(Exception):
     """A safe ingestion failure, optionally associated with a newly created store."""
@@ -77,8 +80,8 @@ def ingest_pdf(
                 "mime_type": "application/pdf",
                 "chunking_config": {
                     "white_space_config": {
-                        "max_tokens_per_chunk": 400,
-                        "max_overlap_tokens": 60,
+                        "max_tokens_per_chunk": FILE_SEARCH_MAX_TOKENS_PER_CHUNK,
+                        "max_overlap_tokens": FILE_SEARCH_MAX_OVERLAP_TOKENS,
                     }
                 },
             },

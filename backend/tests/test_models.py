@@ -5,7 +5,9 @@ from artigas_mvp_backend.models import (
     ChatRequest,
     Citation,
     CompleteEventData,
+    EducationalAction,
     ErrorPayload,
+    LearningState,
     UsagePayload,
 )
 
@@ -70,6 +72,18 @@ def test_complete_payload_has_stable_public_schema() -> None:
                 end_index=20,
             )
         ],
+        answer_status="documented",
+        sources=[],
+        educational_actions=[
+            EducationalAction(
+                type="deepen",
+                label="Profundizar",
+                action_id="federalismo-intro-1",
+                question="¿Cómo se organizaba la autonomía provincial?",
+                url=None,
+            )
+        ],
+        learning_state=LearningState(shown_action_ids=["federalismo-intro-1"]),
         usage=UsagePayload(
             input_tokens=100,
             cached_input_tokens=10,
@@ -93,6 +107,23 @@ def test_complete_payload_has_stable_public_schema() -> None:
                 "end_index": 20,
             }
         ],
+        "answer_status": "documented",
+        "sources": [],
+        "educational_actions": [
+            {
+                "type": "deepen",
+                "label": "Profundizar",
+                "action_id": "federalismo-intro-1",
+                "question": "¿Cómo se organizaba la autonomía provincial?",
+                "url": None,
+            }
+        ],
+        "learning_state": {
+            "shown_action_ids": ["federalismo-intro-1"],
+            "selected_action_ids": [],
+            "submitted_action_id": None,
+            "topic_depths": {},
+        },
         "usage": {
             "input_tokens": 100,
             "cached_input_tokens": 10,
@@ -102,3 +133,29 @@ def test_complete_payload_has_stable_public_schema() -> None:
             "estimated_cost_usd": 0.00036,
         },
     }
+
+
+def test_educational_actions_enforce_fixed_slot_shapes() -> None:
+    question = EducationalAction(
+        type="compare",
+        label="Contrastar",
+        action_id="compare-1",
+        question="¿Qué tensión puede contrastarse?",
+    )
+    source = EducationalAction(
+        type="source",
+        label="Examinar la fuente",
+        url="/api/corpus/artigas#page=26",
+    )
+
+    assert question.url is None
+    assert source.action_id is None
+    assert source.question is None
+
+    with pytest.raises(ValidationError):
+        EducationalAction(
+            type="source",
+            label="Examinar la fuente",
+            action_id="not-allowed",
+            url="/api/corpus/artigas#page=26",
+        )

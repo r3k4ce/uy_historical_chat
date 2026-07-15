@@ -1,21 +1,49 @@
-"""Run explicitly selected live Artigas cases for manual human review."""
+"""Run the reviewed Artigas evaluation matrix and record deterministic evidence."""
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
+import os
 import sys
 import time
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, TextIO
 
 import yaml
+from pydantic import ValidationError
 
 from artigas_mvp_backend.config import Settings
+from artigas_mvp_backend.corpus import CorpusPaths
+from artigas_mvp_backend.evaluation_baseline import (
+    ArtifactPaths,
+    current_artifact_hashes,
+    runtime_settings,
+)
+from artigas_mvp_backend.evaluation_checks import checks_to_payload, run_turn_checks
+from artigas_mvp_backend.evaluation_models import (
+    EvaluationCase,
+    EvaluationDataset,
+    EvaluationTurn,
+)
+from artigas_mvp_backend.models import CompleteEventData, LearningState
+from artigas_mvp_backend.services.corpus import CorpusService
+from artigas_mvp_backend.services.education import (
+    advance_learning_state,
+    normalize_learning_state,
+    select_educational_actions,
+)
+from artigas_mvp_backend.services.evidence import (
+    analyze_citations,
+    build_source_cards,
+    canonicalize_answer_text,
+    classify_answer,
+)
 from artigas_mvp_backend.services.usage import (
     CACHED_INPUT_USD_PER_MILLION,
     INPUT_USD_PER_MILLION,
@@ -25,71 +53,41 @@ from artigas_mvp_backend.services.usage import (
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_DATASET = REPOSITORY_ROOT / "evals" / "artigas-cases.yaml"
 DEFAULT_RESULTS_DIR = REPOSITORY_ROOT / "evals" / "results"
+DEFAULT_BASELINE = REPOSITORY_ROOT / "evals" / "baseline.json"
+
+_LEGACY_CASE_ALIASES = {
+    "instructions-xiii": "art-005-core",
+    "art-005-instructions": "art-005-core",
+}
 
 
 class EvaluationDataError(Exception):
-    """Raised when the committed evaluation dataset is invalid."""
+    """Raised when evaluation input or a resumable result is invalid."""
 
 
 class CaseSelectionError(Exception):
     """Raised when a requested case does not exist."""
 
 
-@dataclass(frozen=True)
-class EvaluationCase:
-    id: str
-    prompt: str
-    expected_behavior: str
-    requires_citation: bool
-    tags: tuple[str, ...]
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def load_dataset(path: Path = DEFAULT_DATASET) -> EvaluationDataset:
+    try:
+        payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+        return EvaluationDataset.model_validate(payload)
+    except (OSError, yaml.YAMLError, ValidationError) as exc:
+        raise EvaluationDataError("No fue posible leer el conjunto de evaluación v2.") from exc
 
 
 def load_cases(path: Path = DEFAULT_DATASET) -> tuple[EvaluationCase, ...]:
-    try:
-        document = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError) as exc:
-        raise EvaluationDataError("No fue posible leer el conjunto de evaluación.") from exc
-    if not isinstance(document, list):
-        raise EvaluationDataError("El conjunto de evaluación debe ser una lista.")
-
-    cases: list[EvaluationCase] = []
-    ids: set[str] = set()
-    for entry in document:
-        if not isinstance(entry, dict):
-            raise EvaluationDataError("Cada caso debe ser un objeto.")
-        case_id = entry.get("id")
-        prompt = entry.get("prompt")
-        expected = entry.get("expected_behavior")
-        requires_citation = entry.get("requires_citation")
-        tags = entry.get("tags")
-        if (
-            not isinstance(case_id, str)
-            or not case_id.strip()
-            or not isinstance(prompt, str)
-            or not prompt.strip()
-            or not isinstance(expected, str)
-            or not expected.strip()
-            or not isinstance(requires_citation, bool)
-            or not isinstance(tags, list)
-            or not tags
-            or not all(isinstance(tag, str) and tag.strip() for tag in tags)
-        ):
-            raise EvaluationDataError("Un caso de evaluación tiene un esquema inválido.")
-        if case_id in ids:
-            raise EvaluationDataError("Los identificadores de casos deben ser únicos.")
-        ids.add(case_id)
-        cases.append(
-            EvaluationCase(
-                id=case_id,
-                prompt=prompt,
-                expected_behavior=expected,
-                requires_citation=requires_citation,
-                tags=tuple(tags),
-            )
-        )
-    if len(cases) != 15:
-        raise EvaluationDataError("El conjunto debe contener exactamente 15 casos.")
-    return tuple(cases)
+    """Compatibility facade retained for callers of the original evaluator."""
+    return load_dataset(path).cases
 
 
 def select_cases(
@@ -100,8 +98,9 @@ def select_cases(
 ) -> tuple[EvaluationCase, ...]:
     if all_cases:
         return cases
+    selected_id = _LEGACY_CASE_ALIASES.get(case_id or "", case_id)
     for case in cases:
-        if case.id == case_id:
+        if case.id == selected_id:
             return (case,)
     raise CaseSelectionError("No existe el caso de evaluación solicitado.")
 
@@ -109,22 +108,6 @@ def select_cases(
 def _dump_model(value: Any) -> Any:
     model_dump = getattr(value, "model_dump", None)
     return model_dump(mode="json") if callable(model_dump) else value
-
-
-def _serialize_usage(usage: Any) -> dict[str, Any]:
-    to_payload = getattr(usage, "to_payload", None)
-    payload = to_payload() if callable(to_payload) else usage
-    dumped = _dump_model(payload)
-    return dumped if isinstance(dumped, dict) else {}
-
-
-def _serialize_citations(citations: Any) -> list[dict[str, Any]]:
-    result: list[dict[str, Any]] = []
-    for citation in citations or ():
-        dumped = _dump_model(citation)
-        if isinstance(dumped, dict):
-            result.append(dumped)
-    return result
 
 
 def _stable_error(exc: Exception) -> dict[str, Any]:
@@ -140,60 +123,209 @@ def _stable_error(exc: Exception) -> dict[str, Any]:
     }
 
 
-async def _run_cases(
-    cases: Sequence[EvaluationCase],
-    service: Any,
-    clock: Callable[[], float],
-) -> list[dict[str, Any]]:
-    results: list[dict[str, Any]] = []
-    for case in cases:
-        started = clock()
-        answer = ""
-        citations: list[dict[str, Any]] = []
-        usage: dict[str, Any] = {}
-        error: dict[str, Any] | None = None
-        try:
-            completed = None
-            async for event in service.stream(
-                message=case.prompt,
-                previous_interaction_id=None,
-            ):
-                if hasattr(event, "final_text"):
-                    completed = event
-            if completed is None:
-                raise RuntimeError("missing completion")
-            answer = completed.final_text
-            citations = _serialize_citations(completed.citations)
-            usage = _serialize_usage(completed.usage)
-        except Exception as exc:
-            error = _stable_error(exc)
-        latency_ms = round((clock() - started) * 1000)
-        results.append(
-            {
-                "id": case.id,
-                "prompt": case.prompt,
-                "expected_behavior": case.expected_behavior,
-                "requires_citation": case.requires_citation,
-                "answer": answer,
-                "citations": citations,
-                "usage": usage,
-                "latency_ms": latency_ms,
-                "error": error,
-            }
+def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.tmp")
+    try:
+        with temporary.open("w", encoding="utf-8", newline="\n") as target:
+            json.dump(payload, target, ensure_ascii=False, indent=2)
+            target.write("\n")
+            target.flush()
+            os.fsync(target.fileno())
+        os.replace(temporary, path)
+    finally:
+        with suppress(FileNotFoundError):
+            temporary.unlink()
+
+
+def _fixture_path(case: EvaluationCase) -> Path:
+    assert case.fixture_file is not None
+    path = Path(case.fixture_file)
+    return path if path.is_absolute() else REPOSITORY_ROOT / path
+
+
+def _load_fixture(case: EvaluationCase) -> tuple[CompleteEventData | None, dict[str, Any] | None]:
+    try:
+        payload = json.loads(_fixture_path(case).read_text(encoding="utf-8"))
+        if payload.get("schema_version") != 1:
+            raise ValueError("unsupported fixture schema")
+        raw_completion = payload.get("completion")
+        completion = (
+            CompleteEventData.model_validate(raw_completion) if raw_completion is not None else None
         )
-    return results
+        raw_error = payload.get("error")
+        if raw_error is not None and not isinstance(raw_error, dict):
+            raise ValueError("invalid fixture error")
+        return completion, raw_error
+    except (OSError, json.JSONDecodeError, ValidationError, ValueError) as exc:
+        raise EvaluationDataError(f"El fixture del caso {case.id} es inválido.") from exc
 
 
-def _default_service_factory(settings: Settings) -> Any:
-    from artigas_mvp_backend.services.gemini import GeminiService
+def _prepare_state(
+    turn: EvaluationTurn,
+    carried_state: LearningState,
+    corpus: CorpusService,
+) -> LearningState:
+    state = (
+        turn.learning_state.model_copy(deep=True)
+        if turn.learning_state
+        else carried_state.model_copy(deep=True)
+    )
+    submitted = turn.submitted_action_id
+    state.submitted_action_id = (
+        submitted
+        if submitted is not None and corpus.validate_action_id(submitted) is not None
+        else None
+    )
+    return normalize_learning_state(state, corpus)
 
-    return GeminiService(settings)
+
+def _enrich_completion(
+    completed: Any,
+    state: LearningState,
+    corpus: CorpusService,
+) -> CompleteEventData:
+    citations = list(completed.citations)
+    final_text = canonicalize_answer_text(completed.final_text, citations)
+    normalized_state = advance_learning_state(state, corpus)
+    analysis = analyze_citations(citations, corpus)
+    answer_status = classify_answer(final_text, citations)
+    actions = select_educational_actions(
+        answer_status=answer_status,
+        analysis=analysis,
+        state=normalized_state,
+        corpus=corpus,
+    )
+    return CompleteEventData(
+        interaction_id=completed.interaction_id,
+        final_text=final_text,
+        citations=citations,
+        answer_status=answer_status,
+        sources=list(build_source_cards(final_text, citations, analysis, corpus)),
+        educational_actions=list(actions),
+        learning_state=normalized_state,
+        usage=completed.usage.to_payload(),
+    )
 
 
-def _print_cost_notice(count: int, max_output_tokens: int, stdout: TextIO) -> None:
-    noun = "llamada" if count == 1 else "llamadas"
-    adjective = "real" if count == 1 else "reales"
-    print(f"Se realizarán {count} {noun} {adjective} al modelo, una por caso.", file=stdout)
+async def _run_live_turn(
+    turn: EvaluationTurn,
+    *,
+    service: Any,
+    corpus: CorpusService,
+    previous_interaction_id: str | None,
+    state: LearningState,
+) -> tuple[CompleteEventData | None, dict[str, Any] | None]:
+    iterator = None
+    completion: CompleteEventData | None = None
+    error: dict[str, Any] | None = None
+    try:
+        iterator = service.stream(
+            message=turn.prompt,
+            previous_interaction_id=previous_interaction_id,
+        )
+        completed = None
+        async for event in iterator:
+            if hasattr(event, "final_text"):
+                completed = event
+        if completed is None:
+            raise RuntimeError("missing completion")
+        completion = _enrich_completion(completed, state, corpus)
+    except Exception as exc:
+        error = _stable_error(exc)
+    if iterator is not None and hasattr(iterator, "aclose"):
+        try:
+            await iterator.aclose()
+        except Exception as exc:
+            if error is None:
+                completion = None
+                error = _stable_error(exc)
+    return completion, error
+
+
+async def _execute_case(
+    case: EvaluationCase,
+    *,
+    service: Any | None,
+    corpus: CorpusService,
+    clock: Callable[[], float],
+) -> dict[str, Any]:
+    turns: list[dict[str, Any]] = []
+    operational_errors: list[dict[str, Any]] = []
+    previous_interaction_id: str | None = None
+    carried_state = LearningState()
+
+    for turn_number, turn in enumerate(case.turns, start=1):
+        started = clock()
+        input_state = _prepare_state(turn, carried_state, corpus)
+        if case.execution == "fixture":
+            completion, error = _load_fixture(case)
+        else:
+            if service is None:  # defensive: live selection always constructs it
+                error = {
+                    "code": "configuration_error",
+                    "message": "La configuración de Gemini no está completa.",
+                    "retryable": False,
+                }
+                completion = None
+            else:
+                completion, error = await _run_live_turn(
+                    turn,
+                    service=service,
+                    corpus=corpus,
+                    previous_interaction_id=previous_interaction_id,
+                    state=input_state,
+                )
+        latency_ms = max(0, round((clock() - started) * 1000))
+        checks = run_turn_checks(
+            completion,
+            turn.expect,
+            corpus=corpus,
+            case_critical=case.critical,
+            input_state=input_state,
+            submitted_action_id=turn.submitted_action_id,
+        )
+        completion_payload = _dump_model(completion) if completion is not None else None
+        usage = completion_payload.get("usage", {}) if completion_payload is not None else {}
+        turn_result = {
+            "turn_number": turn_number,
+            "prompt": turn.prompt,
+            "submitted_action_id": turn.submitted_action_id,
+            "learning_state": input_state.model_dump(mode="json"),
+            "expect": turn.expect.model_dump(mode="json"),
+            "completion": completion_payload,
+            "checks": checks_to_payload(checks),
+            "usage": usage,
+            "latency_ms": latency_ms,
+            "estimated_cost_usd": usage.get("estimated_cost_usd", 0),
+            "error": error,
+        }
+        turns.append(turn_result)
+        if error is not None:
+            operational_errors.append({"turn_number": turn_number, **error})
+            break
+        assert completion is not None
+        previous_interaction_id = completion.interaction_id
+        carried_state = completion.learning_state.model_copy(deep=True)
+
+    return {
+        "id": case.id,
+        "execution": case.execution,
+        "critical": case.critical,
+        "core_historical": case.core_historical,
+        "human_review": list(case.human_review),
+        "turns": turns,
+        "operational_errors": operational_errors,
+    }
+
+
+def _print_cost_notice(call_count: int, max_output_tokens: int, stdout: TextIO) -> None:
+    noun = "llamada" if call_count == 1 else "llamadas"
+    adjective = "real" if call_count == 1 else "reales"
+    print(
+        f"Se realizarán {call_count} {noun} {adjective} al modelo, una por turno live.",
+        file=stdout,
+    )
     formatted_output_tokens = f"{max_output_tokens:,}".replace(",", ".")
     print(
         f"Límites por llamada: {formatted_output_tokens} tokens de salida y "
@@ -214,61 +346,262 @@ def _print_cost_notice(count: int, max_output_tokens: int, stdout: TextIO) -> No
     )
 
 
+def _new_payload(
+    *,
+    timestamp: datetime,
+    settings: Settings,
+    dataset_path: Path,
+) -> dict[str, Any]:
+    artifact_hashes = current_artifact_hashes(
+        ArtifactPaths.repository_defaults(dataset=dataset_path)
+    )
+    return {
+        "schema_version": 2,
+        "generated_at": timestamp.isoformat().replace("+00:00", "Z"),
+        "dataset_sha256": _sha256_file(dataset_path),
+        "artifact_hashes": artifact_hashes,
+        "model": settings.gemini_model,
+        "settings": _runtime_settings(settings),
+        "cases": [],
+    }
+
+
+def _runtime_settings(settings: Settings) -> dict[str, Any]:
+    return runtime_settings(settings)
+
+
+def _load_resume(
+    path: Path,
+    dataset_path: Path,
+    settings: Settings,
+    cases: Sequence[EvaluationCase],
+) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise EvaluationDataError("No fue posible leer el resultado a reanudar.") from exc
+    if payload.get("schema_version") != 2:
+        raise EvaluationDataError("Solo se pueden reanudar resultados con schema_version 2.")
+    if payload.get("dataset_sha256") != _sha256_file(dataset_path):
+        raise EvaluationDataError("El resultado no corresponde al conjunto de evaluación actual.")
+    if payload.get("artifact_hashes") != current_artifact_hashes(
+        ArtifactPaths.repository_defaults(dataset=dataset_path)
+    ):
+        raise EvaluationDataError("Los artefactos de evaluación cambiaron desde la ejecución.")
+    if payload.get("model") != settings.gemini_model or payload.get(
+        "settings"
+    ) != _runtime_settings(settings):
+        raise EvaluationDataError("El resultado usa un modelo o configuración diferente.")
+    if not isinstance(payload.get("cases"), list):
+        raise EvaluationDataError("El resultado a reanudar no contiene casos válidos.")
+    expected_by_id = {case.id: case for case in cases}
+    result_ids: list[str] = []
+    for item in payload["cases"]:
+        if not isinstance(item, dict) or not isinstance(item.get("id"), str):
+            raise EvaluationDataError("El resultado a reanudar contiene un caso inválido.")
+        case_id = item["id"]
+        expected = expected_by_id.get(case_id)
+        turns = item.get("turns")
+        operational_errors = item.get("operational_errors")
+        if (
+            expected is None
+            or item.get("execution") != expected.execution
+            or not isinstance(turns, list)
+            or not turns
+            or not isinstance(operational_errors, list)
+            or (not operational_errors and len(turns) != len(expected.turns))
+            or len(turns) > len(expected.turns)
+            or any(not isinstance(turn, dict) for turn in turns)
+        ):
+            raise EvaluationDataError("El resultado a reanudar contiene un caso incompleto.")
+        result_ids.append(case_id)
+    if len(result_ids) != len(set(result_ids)):
+        raise EvaluationDataError("El resultado a reanudar contiene casos duplicados.")
+    return payload
+
+
+async def _execute_pending_cases(
+    pending: Sequence[EvaluationCase],
+    *,
+    settings: Settings,
+    service_factory: Callable[[Settings], Any],
+    corpus: CorpusService,
+    clock: Callable[[], float],
+    payload: dict[str, Any],
+    output_path: Path,
+) -> None:
+    service = (
+        service_factory(settings) if any(case.execution == "live" for case in pending) else None
+    )
+    for case in pending:
+        case_result = await _execute_case(case, service=service, corpus=corpus, clock=clock)
+        payload["cases"].append(case_result)
+        _atomic_write_json(output_path, payload)
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Ejecuta la evaluación educativa de Artigas.")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    run = subparsers.add_parser("run", help="Ejecuta casos live o fixtures.")
+    selection = run.add_mutually_exclusive_group(required=True)
+    selection.add_argument("--case", dest="case_id")
+    selection.add_argument("--all", dest="all_cases", action="store_true")
+    run.add_argument("--confirm-cost", action="store_true")
+    run.add_argument("--resume", type=Path)
+    review = subparsers.add_parser("review", help="Revisa y puntúa un resultado.")
+    review.add_argument("result", type=Path)
+    compare = subparsers.add_parser("compare", help="Aplica la puerta formal de calidad.")
+    compare.add_argument("result", type=Path)
+    promote = subparsers.add_parser("promote", help="Promueve una línea base aprobada.")
+    promote.add_argument("result", type=Path)
+    return parser
+
+
 def main(
     argv: list[str] | None = None,
     *,
     dataset_path: Path = DEFAULT_DATASET,
     results_dir: Path = DEFAULT_RESULTS_DIR,
-    service_factory: Callable[[Settings], Any] = _default_service_factory,
+    service_factory: Callable[[Settings], Any] | None = None,
+    corpus_factory: Callable[[], CorpusService] | None = None,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
     clock: Callable[[], float] = time.perf_counter,
+    stdin: TextIO | None = None,
     stdout: TextIO | None = None,
     stderr: TextIO | None = None,
+    baseline_path: Path = DEFAULT_BASELINE,
 ) -> int:
-    output_stream: TextIO = sys.stdout if stdout is None else stdout
-    error_stream: TextIO = sys.stderr if stderr is None else stderr
-    parser = argparse.ArgumentParser(description="Ejecuta evaluaciones manuales con costo real.")
-    selection = parser.add_mutually_exclusive_group(required=True)
-    selection.add_argument("--case", dest="case_id")
-    selection.add_argument("--all", dest="all_cases", action="store_true")
-    parser.add_argument("--confirm-cost", action="store_true")
-    args = parser.parse_args(argv)
+    input_stream = sys.stdin if stdin is None else stdin
+    output_stream = sys.stdout if stdout is None else stdout
+    error_stream = sys.stderr if stderr is None else stderr
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    legacy = bool(arguments and arguments[0] in {"--case", "--all"})
+    if legacy:
+        arguments.insert(0, "run")
+        print(
+            "Aviso: esta invocación es obsoleta; use `evaluate run`.",
+            file=error_stream,
+        )
+    args = _parser().parse_args(arguments)
+    if args.command == "promote":
+        from artigas_mvp_backend.evaluation_baseline import (
+            EvaluationBaselineError,
+            promote_result,
+        )
+
+        try:
+            promote_result(
+                args.result,
+                baseline_path=baseline_path,
+                artifacts=ArtifactPaths.repository_defaults(dataset=dataset_path),
+                settings=Settings.from_env(),
+                stdin=input_stream,
+                stdout=output_stream,
+            )
+            print(f"Línea base guardada en {baseline_path}", file=output_stream)
+            return 0
+        except EvaluationBaselineError as exc:
+            print(str(exc), file=error_stream)
+            return 2
+    if args.command in {"review", "compare"}:
+        from artigas_mvp_backend.evaluation_review import (
+            EvaluationReviewError,
+            compare_result,
+            review_result,
+        )
+
+        try:
+            if args.command == "review":
+                review_result(
+                    args.result,
+                    stdin=input_stream,
+                    stdout=output_stream,
+                    baseline_path=baseline_path,
+                )
+                print(f"Revisión guardada en {args.result}", file=output_stream)
+                return 0
+            report = compare_result(
+                args.result,
+                stdout=output_stream,
+                baseline_path=baseline_path,
+            )
+            return 0 if report.passed else 1
+        except EvaluationReviewError as exc:
+            print(str(exc), file=error_stream)
+            return 2
+    if args.resume is not None and not args.all_cases:
+        print("--resume solo puede usarse junto con --all.", file=error_stream)
+        return 2
 
     try:
         cases = select_cases(
-            load_cases(dataset_path),
-            case_id=args.case_id,
-            all_cases=args.all_cases,
+            load_cases(dataset_path), case_id=args.case_id, all_cases=args.all_cases
         )
     except (EvaluationDataError, CaseSelectionError) as exc:
         print(str(exc), file=error_stream)
         return 2
 
     settings = Settings.from_env()
-    _print_cost_notice(len(cases), settings.gemini_max_output_tokens, output_stream)
-    if not args.confirm_cost:
-        print("Agregue --confirm-cost para autorizar las llamadas reales.", file=error_stream)
-        return 2
+    live_turn_count = sum(len(case.turns) for case in cases if case.execution == "live")
+    if live_turn_count:
+        _print_cost_notice(live_turn_count, settings.gemini_max_output_tokens, output_stream)
+        if not args.confirm_cost:
+            print("Agregue --confirm-cost para autorizar las llamadas reales.", file=error_stream)
+            return 2
+        configuration_error = settings.chat_configuration_error()
+        if configuration_error:
+            print(configuration_error, file=error_stream)
+            return 2
 
-    configuration_error = settings.chat_configuration_error()
-    if configuration_error:
-        print(configuration_error, file=error_stream)
-        return 2
-
-    service = service_factory(settings)
-    results = asyncio.run(_run_cases(cases, service, clock))
     timestamp = now().astimezone(UTC)
-    results_dir.mkdir(parents=True, exist_ok=True)
-    output_path = results_dir / timestamp.strftime("%Y%m%dT%H%M%SZ.json")
-    payload = {
-        "generated_at": timestamp.isoformat().replace("+00:00", "Z"),
-        "model": settings.gemini_model,
-        "results": results,
-    }
-    output_path.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
+    output_path = (
+        args.resume
+        if args.resume is not None
+        else results_dir / timestamp.strftime("%Y%m%dT%H%M%SZ.json")
     )
+    try:
+        payload = (
+            _load_resume(output_path, dataset_path, settings, cases)
+            if args.resume is not None
+            else _new_payload(
+                timestamp=timestamp,
+                settings=settings,
+                dataset_path=dataset_path,
+            )
+        )
+        completed_ids = {item.get("id") for item in payload["cases"] if isinstance(item, dict)}
+        selected_ids = {case.id for case in cases}
+        if not completed_ids <= selected_ids:
+            raise EvaluationDataError("El resultado contiene casos ajenos a esta ejecución.")
+        pending = [case for case in cases if case.id not in completed_ids]
+        corpus = (
+            corpus_factory()
+            if corpus_factory is not None
+            else CorpusService.load(CorpusPaths.repository_defaults())
+        )
+        if service_factory is None:
+            from artigas_mvp_backend.services.gemini import GeminiService
+
+            service_factory = GeminiService
+        _atomic_write_json(output_path, payload)
+        asyncio.run(
+            _execute_pending_cases(
+                pending,
+                settings=settings,
+                service_factory=service_factory,
+                corpus=corpus,
+                clock=clock,
+                payload=payload,
+                output_path=output_path,
+            )
+        )
+    except EvaluationDataError as exc:
+        print(str(exc), file=error_stream)
+        return 2
+    except Exception:
+        print("No fue posible completar la ejecución de evaluación.", file=error_stream)
+        return 1
+
     print(f"Resultados guardados en {output_path}", file=output_stream)
     return 0
 

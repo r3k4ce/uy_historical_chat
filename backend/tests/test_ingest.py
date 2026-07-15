@@ -7,7 +7,14 @@ from typing import Any
 
 import pytest
 
-from artigas_mvp_backend.ingest import IngestionError, ingest_pdf, main, validate_pdf_path
+from artigas_mvp_backend.ingest import (
+    FILE_SEARCH_MAX_OVERLAP_TOKENS,
+    FILE_SEARCH_MAX_TOKENS_PER_CHUNK,
+    IngestionError,
+    ingest_pdf,
+    main,
+    validate_pdf_path,
+)
 
 
 class FakeOperations:
@@ -99,6 +106,11 @@ def test_ingest_creates_store_uploads_pdf_and_polls(tmp_path: Path) -> None:
     assert sleeps == [5]
     assert len(client.operations.seen) == 1
     assert client.file_search_stores.get_calls == [{"name": store_name}]
+
+
+def test_file_search_chunking_contract_is_centralized() -> None:
+    assert FILE_SEARCH_MAX_TOKENS_PER_CHUNK == 400
+    assert FILE_SEARCH_MAX_OVERLAP_TOKENS == 60
 
 
 @pytest.mark.parametrize(

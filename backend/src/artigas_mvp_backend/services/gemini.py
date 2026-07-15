@@ -62,6 +62,21 @@ _TIMEOUT_CLASS_NAMES = {
     "WriteTimeout",
 }
 _CANONICAL_RECONCILIATION_DELAYS_SECONDS = (0.1, 0.2, 0.4, 0.8)
+_GROUNDING_RETRY_PREFIX = (
+    "Consulta nuevamente el corpus mediante File Search antes de responder. "
+    "La interacción previa aporta contexto, no evidencia para este turno.\n\n"
+)
+
+
+def _combine_usage(first: NormalizedUsage, second: NormalizedUsage) -> NormalizedUsage:
+    return NormalizedUsage(
+        input_tokens=first.input_tokens + second.input_tokens,
+        cached_input_tokens=first.cached_input_tokens + second.cached_input_tokens,
+        output_tokens=first.output_tokens + second.output_tokens,
+        thought_tokens=first.thought_tokens + second.thought_tokens,
+        total_tokens=first.total_tokens + second.total_tokens,
+        estimated_cost=first.estimated_cost + second.estimated_cost,
+    )
 
 
 def _value(value: object | None, *names: str) -> Any:
@@ -286,6 +301,10 @@ class GeminiService:
                 "thinking_level": self.settings.gemini_thinking_level,
                 "max_output_tokens": self.settings.gemini_max_output_tokens,
                 "temperature": self.settings.gemini_temperature,
+                # File Search is the only configured tool. Validated mode keeps
+                # conversational replies available while constraining any tool
+                # use to the reviewed corpus.
+                "tool_choice": "validated",
             },
             "stream": True,
         }
@@ -298,11 +317,17 @@ class GeminiService:
     ) -> AsyncIterator[GeminiTextDelta | GeminiCompleted]:
         maximum_attempts = self.settings.gemini_max_retries + 1
         text_emitted = False
+        grounding_fallback: GeminiCompleted | None = None
+        terminal_retry_usage: NormalizedUsage | None = None
+        suppress_retry_deltas = False
         for attempt in range(maximum_attempts):
             provider_stream: Any | None = None
             try:
+                attempt_message = (
+                    _GROUNDING_RETRY_PREFIX + message if grounding_fallback is not None else message
+                )
                 created_stream = await self.client.aio.interactions.create(
-                    **self._request_arguments(message, previous_interaction_id)
+                    **self._request_arguments(attempt_message, previous_interaction_id)
                 )
                 provider_stream = created_stream
                 interaction_id: str | None = None
@@ -311,7 +336,8 @@ class GeminiService:
                     delta = _text_delta(event)
                     if delta is not None:
                         text_emitted = True
-                        yield GeminiTextDelta(delta)
+                        if grounding_fallback is None and not suppress_retry_deltas:
+                            yield GeminiTextDelta(delta)
                 if interaction_id is None:
                     raise RuntimeError("Provider stream ended without an interaction identifier")
 
@@ -327,6 +353,13 @@ class GeminiService:
                     self.settings.gemini_max_output_tokens,
                 )
                 if not accepted:
+                    if grounding_fallback is None and attempt + 1 < maximum_attempts:
+                        terminal_retry_usage = normalize_usage(_value(canonical, "usage"))
+                        suppress_retry_deltas = text_emitted
+                        logger.warning(
+                            "Gemini interaction ended without an accepted completion; retrying"
+                        )
+                        continue
                     raise GeminiServiceError(
                         code="provider_error",
                         user_message="No fue posible completar la respuesta.",
@@ -344,20 +377,62 @@ class GeminiService:
                         retryable=False,
                         transient=False,
                     ) from exc
-                yield GeminiCompleted(
+                completion = GeminiCompleted(
                     interaction_id=interaction_id,
                     final_text=final_text,
                     citations=citations,
                     usage=normalize_usage(_value(canonical, "usage")),
                 )
+                if terminal_retry_usage is not None:
+                    completion = GeminiCompleted(
+                        interaction_id=completion.interaction_id,
+                        final_text=completion.final_text,
+                        citations=completion.citations,
+                        usage=_combine_usage(terminal_retry_usage, completion.usage),
+                    )
+                should_retry_grounding = (
+                    not citations
+                    and grounding_fallback is None
+                    and previous_interaction_id is not None
+                    and "?" in message
+                    and attempt + 1 < maximum_attempts
+                )
+                if should_retry_grounding:
+                    grounding_fallback = completion
+                    logger.warning(
+                        "Gemini follow-up omitted citations; retrying current-turn grounding"
+                    )
+                    continue
+                if grounding_fallback is not None:
+                    if citations:
+                        completion = GeminiCompleted(
+                            interaction_id=completion.interaction_id,
+                            final_text=completion.final_text,
+                            citations=completion.citations,
+                            usage=_combine_usage(grounding_fallback.usage, completion.usage),
+                        )
+                    else:
+                        completion = GeminiCompleted(
+                            interaction_id=grounding_fallback.interaction_id,
+                            final_text=grounding_fallback.final_text,
+                            citations=grounding_fallback.citations,
+                            usage=_combine_usage(grounding_fallback.usage, completion.usage),
+                        )
+                yield completion
                 return
             except asyncio.CancelledError:
                 if provider_stream is not None and hasattr(provider_stream, "aclose"):
                     await provider_stream.aclose()
                 raise
             except GeminiServiceError:
+                if grounding_fallback is not None:
+                    yield grounding_fallback
+                    return
                 raise
             except Exception as exc:
+                if grounding_fallback is not None:
+                    yield grounding_fallback
+                    return
                 translated = _translate_provider_error(exc, text_emitted=text_emitted)
                 can_retry = (
                     translated.transient and not text_emitted and attempt + 1 < maximum_attempts

@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { ChatApiError, streamChat } from "../api/chat";
-import type { ChatError, Citation } from "../types";
+import type {
+  AnswerStatus,
+  ChatError,
+  Citation,
+  EducationalAction,
+  LearningState,
+  SourceCard,
+} from "../types";
 import ChatHeader from "./ChatHeader";
 import Composer from "./Composer";
 import Message from "./Message";
@@ -24,6 +31,14 @@ type ChatMessage = {
   text: string;
   complete: boolean;
   citations: Citation[];
+  answerStatus: AnswerStatus | null;
+  sources: SourceCard[];
+  educationalActions: EducationalAction[];
+};
+
+type PendingAction = {
+  id: string;
+  question: string;
 };
 
 type Attempt = {
@@ -31,7 +46,17 @@ type Attempt = {
   turnNumber: number;
   previousInteractionId: string | null;
   assistantId: number;
+  learningState: LearningState;
 };
+
+function emptyLearningState(): LearningState {
+  return {
+    shown_action_ids: [],
+    selected_action_ids: [],
+    submitted_action_id: null,
+    topic_depths: {},
+  };
+}
 
 const genericError: ChatError = {
   code: "provider_error",
@@ -55,6 +80,10 @@ export default function ChatPage() {
   const [turnCount, setTurnCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ChatError | null>(null);
+  const [learningState, setLearningState] = useState<LearningState>(
+    emptyLearningState,
+  );
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const activeController = useRef<AbortController | null>(null);
   const generation = useRef(0);
   const nextMessageId = useRef(1);
@@ -116,7 +145,15 @@ export default function ChatPage() {
       setMessages((current) =>
         current.map((message) =>
           message.id === attempt.assistantId
-            ? { ...message, text: "", complete: false, citations: [] }
+            ? {
+                ...message,
+                text: "",
+                complete: false,
+                citations: [],
+                answerStatus: null,
+                sources: [],
+                educationalActions: [],
+              }
             : message,
         ),
       );
@@ -130,6 +167,7 @@ export default function ChatPage() {
             ? { previous_interaction_id: attempt.previousInteractionId }
             : {}),
           turn_number: attempt.turnNumber,
+          learning_state: attempt.learningState,
         },
         {
           onText(delta) {
@@ -152,11 +190,15 @@ export default function ChatPage() {
                       text: payload.final_text,
                       complete: true,
                       citations: payload.citations,
+                      answerStatus: payload.answer_status,
+                      sources: payload.sources,
+                      educationalActions: payload.educational_actions,
                     }
                   : message,
               ),
             );
             setPreviousInteractionId(payload.interaction_id);
+            setLearningState(payload.learning_state);
             requestTextareaFocus(requestGeneration);
             setLoading(false);
           },
@@ -198,26 +240,51 @@ export default function ChatPage() {
     const userId = nextMessageId.current++;
     const assistantId = nextMessageId.current++;
     const turnNumber = turnCount + 1;
+    const submittedActionId =
+      pendingAction !== null && question === pendingAction.question
+        ? pendingAction.id
+        : null;
+    const requestLearningState: LearningState = {
+      ...learningState,
+      shown_action_ids: [...learningState.shown_action_ids],
+      selected_action_ids: [...learningState.selected_action_ids],
+      submitted_action_id: submittedActionId,
+      topic_depths: { ...learningState.topic_depths },
+    };
     const attempt: Attempt = {
       message,
       turnNumber,
       previousInteractionId,
       assistantId,
+      learningState: requestLearningState,
     };
     followOutput.current = true;
     setMessages((current) => [
       ...current,
-      { id: userId, role: "user", text: message, complete: true, citations: [] },
+      {
+        id: userId,
+        role: "user",
+        text: message,
+        complete: true,
+        citations: [],
+        answerStatus: null,
+        sources: [],
+        educationalActions: [],
+      },
       {
         id: assistantId,
         role: "assistant",
         text: "",
         complete: false,
         citations: [],
+        answerStatus: null,
+        sources: [],
+        educationalActions: [],
       },
     ]);
     setTurnCount(turnNumber);
     setDraft("");
+    setPendingAction(null);
     void runAttempt(attempt, false);
   }
 
@@ -230,6 +297,8 @@ export default function ChatPage() {
     setPreviousInteractionId(null);
     setTurnCount(0);
     setDraft("");
+    setPendingAction(null);
+    setLearningState(emptyLearningState());
     setError(null);
     requestTextareaFocus(generation.current);
     setLoading(false);
@@ -238,6 +307,26 @@ export default function ChatPage() {
   function retry() {
     if (!lastAttempt.current || !error || !canRetry(error) || loading) return;
     void runAttempt(lastAttempt.current, true);
+  }
+
+  function selectEducationalAction(action: EducationalAction) {
+    if (action.type === "source") return;
+    setLearningState((current) => ({
+      ...current,
+      selected_action_ids: [
+        ...new Set([...current.selected_action_ids, action.action_id]),
+      ].sort(),
+    }));
+    setDraft(action.question);
+    setPendingAction({ id: action.action_id, question: action.question });
+    textarea.current?.focus();
+  }
+
+  function changeDraft(nextDraft: string) {
+    setDraft(nextDraft);
+    if (pendingAction !== null && nextDraft !== pendingAction.question) {
+      setPendingAction(null);
+    }
   }
 
   return (
@@ -271,6 +360,11 @@ export default function ChatPage() {
               text={message.text}
               complete={message.complete}
               citations={message.citations}
+              answerStatus={message.answerStatus}
+              sources={message.sources}
+              educationalActions={message.educationalActions}
+              actionsDisabled={loading}
+              onSelectEducationalAction={selectEducationalAction}
             />
           ))}
           <div ref={conversationEnd} aria-hidden="true" />
@@ -294,7 +388,7 @@ export default function ChatPage() {
         loading={loading}
         maxLength={MAX_MESSAGE_LENGTH}
         textareaRef={textarea}
-        onDraftChange={setDraft}
+        onDraftChange={changeDraft}
         onSend={() => submitQuestion(draft)}
       />
     </main>

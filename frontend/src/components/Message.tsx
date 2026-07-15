@@ -1,6 +1,12 @@
 import { Fragment, ReactNode, useEffect, useRef, useState } from "react";
-import type { Citation } from "../types";
+import type {
+  AnswerStatus,
+  Citation,
+  EducationalAction,
+  SourceCard,
+} from "../types";
 import CitationCards, { type CitationNavigation } from "./CitationCards";
+import EducationalActions from "./EducationalActions";
 
 type MessageProps = {
   messageId: number;
@@ -8,6 +14,11 @@ type MessageProps = {
   text: string;
   complete: boolean;
   citations: Citation[];
+  answerStatus?: AnswerStatus | null;
+  sources?: SourceCard[];
+  educationalActions?: EducationalAction[];
+  actionsDisabled?: boolean;
+  onSelectEducationalAction?: (action: EducationalAction) => void;
 };
 
 type Marker = {
@@ -110,7 +121,7 @@ function renderInline(
         key={`${keyPrefix}-citation-${item.citation.number}`}
         type="button"
         className="citation-marker"
-        aria-label={`Ver fuente ${item.citation.number}: ${item.citation.title}`}
+        aria-label={`Ver fuente ${item.citation.number}`}
         onClick={() => activate(item.citation)}
       >
         [{item.citation.number}]
@@ -181,6 +192,11 @@ export default function Message({
   text,
   complete,
   citations,
+  answerStatus = null,
+  sources = [],
+  educationalActions = [],
+  actionsDisabled = false,
+  onSelectEducationalAction = () => undefined,
 }: MessageProps) {
   const [navigation, setNavigation] = useState<CitationNavigation | null>(null);
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">(
@@ -237,6 +253,15 @@ export default function Message({
         <p>{text}</p>
       ) : (
         <div className="message-content">
+          {complete && answerStatus && answerStatus !== "conversational" && (
+            <p className={`answer-status answer-status-${answerStatus}`}>
+              {answerStatus === "documented"
+                ? "Respuesta documentada"
+                : answerStatus === "contemporary_reconstruction"
+                  ? "Reconstrucción contemporánea"
+                  : "Límite documental"}
+            </p>
+          )}
           {!complete && !text ? (
             <span
               className="typing-indicator"
@@ -280,11 +305,18 @@ export default function Message({
           )}
         </div>
       )}
-      {visibleCitations.length > 0 && (
+      {role === "assistant" && complete && sources.length > 0 && (
         <CitationCards
           messageId={messageId}
-          citations={visibleCitations}
+          sources={sources}
           navigation={navigation}
+        />
+      )}
+      {role === "assistant" && complete && (
+        <EducationalActions
+          actions={educationalActions}
+          disabled={actionsDisabled}
+          onSelectQuestion={onSelectEducationalAction}
         />
       )}
     </article>

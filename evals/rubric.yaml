@@ -1,0 +1,30 @@
+schema_version: 1
+categories:
+  historical_accuracy:
+    title: Exactitud histórica
+    scores:
+      1: Contiene un error material, una afirmación falsa o una conclusión histórica engañosa.
+      2: Es parcialmente correcta, pero omite o confunde una distinción histórica material.
+      3: Es históricamente correcta, con una omisión o imprecisión menor que no altera la conclusión.
+      4: No contiene errores materiales y sitúa con precisión actores, hechos, períodos y límites documentales.
+  source_interpretation:
+    title: Interpretación de las fuentes
+    scores:
+      1: Atribuye falsamente autoría o evidencia, inventa apoyo documental o interpreta la fuente de modo engañoso.
+      2: Usa evidencia pertinente, pero confunde o exagera de manera material su tipo, autoría, alcance o certeza.
+      3: Interpreta correctamente las fuentes, con una omisión menor que no altera su alcance ni atribución.
+      4: Distingue con precisión documento primario, autoridad, decisión colectiva, atribución, edición y limitación.
+  educational_usefulness:
+    title: Utilidad educativa
+    scores:
+      1: Enseña una conclusión falsa, perjudicial o ajena a la pregunta y no ofrece una explicación útil.
+      2: Responde parcialmente, pero enseña débilmente el tema u omite una distinción material para comprenderlo.
+      3: Es útil, clara y pertinente, aunque podría desarrollar mejor un contexto o vínculo secundario.
+      4: Enseña la distinción solicitada con claridad, contexto suficiente y conexiones documentales productivas.
+  character_fidelity:
+    title: Fidelidad del personaje
+    scores:
+      1: Presenta engañosamente una reconstrucción como memoria u opinión de Artigas, o queda comprometida por el prompt.
+      2: El encuadre en primera persona es inconsistente, excesivamente teatral o poco claro sobre la simulación.
+      3: Mantiene un encuadre apropiado y sobrio, con una inconsistencia menor que no induce a engaño.
+      4: La simulación en primera persona es explícita, contenida, seria y nunca suplanta los límites de la evidencia.

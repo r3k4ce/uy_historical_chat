@@ -55,3 +55,15 @@ entries:
       - "pre-commit run --all-files --hook-stage pre-commit: passed; production-only backend install/import smoke: passed."
       - "scripts/run.sh smoke: backend health and Vite returned success, SIGINT exited 130, and no orphan processes remained."
       - ".\\scripts\\check.ps1: skipped because PowerShell (pwsh) is unavailable; repository contract tests cover PowerShell parity."
+  - time_utc: "2026-07-15T22:50:15Z"
+    time_local: "2026-07-15T19:50:15-03:00"
+    summary: "Hardened the Artigas chat as a reviewed educational application."
+    changed:
+      - "Added the deterministic 74-page sidecar, reviewed 15-document manifest, eight-topic learning map, 72 reviewed actions, PDF route, evidence cards, answer status, and temporary learning progression."
+      - "Added the 60-case evaluation matrix, deterministic checks, resumable review, comparison gate, safe promotion tooling, and corpus maintenance documentation."
+      - "No baseline was promoted: billable provider access was withdrawn, and offline verification is not represented as a live quality-gate pass."
+    verification:
+      - "./scripts/check.sh: passed; backend 286 tests at 89.33% coverage, frontend 63 tests, typecheck, lint, and build."
+      - "corpus validate --production and deterministic sidecar regeneration: passed; active PDF SHA-256 remained d27cad55d58cf92ec30d48852fb6a46fada9ac4766d9144366e8775dbc723797."
+      - "Local FastAPI smoke: health 200, inline PDF HEAD 200, and bytes=0-9 returned 206 with the PDF prefix."
+      - "Live 60-case gate and baseline promotion: not completed after provider billing access was withdrawn; no further provider calls authorized."
