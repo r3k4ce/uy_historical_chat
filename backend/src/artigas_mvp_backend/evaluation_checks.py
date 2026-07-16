@@ -13,7 +13,11 @@ from pydantic import BaseModel, ConfigDict
 from artigas_mvp_backend.corpus_models import LearningTopicId, TopicDepth
 from artigas_mvp_backend.evaluation_models import TurnExpectation
 from artigas_mvp_backend.models import CompleteEventData, LearningState
-from artigas_mvp_backend.prompts import DOCUMENTARY_LIMIT_RESPONSE, RECONSTRUCTION_OPENING
+from artigas_mvp_backend.prompts import (
+    ARTIGAS_PROFILE,
+    DOCUMENTARY_LIMIT_RESPONSE,
+    RECONSTRUCTION_OPENING,
+)
 from artigas_mvp_backend.services.evidence import (
     analyze_citations,
     rank_learning_topics,
@@ -41,6 +45,23 @@ _ALWAYS_CRITICAL_GROUPS: frozenset[CheckGroup] = frozenset(
 _DOCUMENTARY_QUOTATION_PUNCTUATION = frozenset(
     "\"'`\u00ab\u00bb\u2018\u2019\u201a\u201b\u201c\u201d\u201e\u201f"
 )
+_RETRIEVAL_DISCLOSURES = (
+    "documentos disponibles",
+    "documentación disponible",
+    "fuentes disponibles",
+    "corpus",
+    "fragmentos recuperados",
+    "material recuperado",
+    "evidencia recuperada",
+    "evidencia disponible",
+    "según los documentos",
+    "según las fuentes",
+)
+_PERSONALITY_CATEGORIES = ("character_fidelity", "conversational_presence")
+
+
+def _contains_standalone_phrase(text: str, phrase: str) -> bool:
+    return re.search(rf"(?<!\w){re.escape(phrase)}(?!\w)", text) is not None
 
 
 class DeterministicCheck(BaseModel):
@@ -358,6 +379,38 @@ def run_turn_checks(
             case_critical=case_critical,
         )
     )
+    disclosure_matches = [
+        phrase
+        for phrase in _RETRIEVAL_DISCLOSURES
+        if _contains_standalone_phrase(normalized_answer, normalize_phrase(phrase))
+    ]
+    checks.append(
+        _check(
+            "character-retrieval-disclosure",
+            "prompt_safety",
+            not disclosure_matches,
+            "Visible answer does not disclose retrieval machinery."
+            if not disclosure_matches
+            else f"Matched {len(disclosure_matches)} retrieval disclosure phrase(s).",
+            case_critical=case_critical,
+        )
+    )
+    self_reference_matches = [
+        alias
+        for alias in ARTIGAS_PROFILE.third_person_self_references
+        if _contains_standalone_phrase(normalized_answer, normalize_phrase(alias))
+    ]
+    checks.append(
+        _check(
+            "character-third-person-self-reference",
+            "prompt_safety",
+            not self_reference_matches,
+            "Visible answer contains no configured third-person self-reference."
+            if not self_reference_matches
+            else f"Matched {len(self_reference_matches)} configured self-reference(s).",
+            case_critical=case_critical,
+        )
+    )
 
     status_ok = completion.answer_status == expectation.expected_status
     checks.append(
@@ -666,6 +719,9 @@ def evaluate_quality_gate(
     scores_by_category: dict[str, list[int]] = defaultdict(list)
     complete_scores = True
     core_score_one: list[str] = []
+    personality_score_failures: list[str] = []
+    personality_scores: list[int] = []
+    personality_case_count = 0
     for case in cases:
         required = case.get("human_review", [])
         if not required:
@@ -681,6 +737,23 @@ def evaluate_quality_gate(
             scores_by_category[category].append(score)
             if case.get("core_historical") and score == 1:
                 core_score_one.append(f"{case_id}:{category}")
+        if set(_PERSONALITY_CATEGORIES) <= set(required):
+            personality_case_count += 1
+            case_personality_scores = [
+                scores.get(category) if isinstance(scores, dict) else None
+                for category in _PERSONALITY_CATEGORIES
+            ]
+            valid_personality_scores = [
+                score
+                for score in case_personality_scores
+                if isinstance(score, int) and not isinstance(score, bool) and 1 <= score <= 4
+            ]
+            if len(valid_personality_scores) == len(_PERSONALITY_CATEGORIES):
+                personality_scores.extend(valid_personality_scores)
+                if any(score < 3 for score in valid_personality_scores):
+                    personality_score_failures.append(str(case_id))
+            else:
+                personality_score_failures.append(f"{case_id}:scores-missing")
     category_averages = {
         category: sum(values) / len(values) for category, values in scores_by_category.items()
     }
@@ -689,6 +762,9 @@ def evaluate_quality_gate(
         bool(expected_categories)
         and expected_categories == set(category_averages)
         and all(average >= 3.25 for average in category_averages.values())
+    )
+    personality_average = (
+        sum(personality_scores) / len(personality_scores) if personality_scores else 0.0
     )
     rules.extend(
         [
@@ -700,6 +776,25 @@ def evaluate_quality_gate(
                     for category, average in sorted(category_averages.items())
                 )
                 or "No rubric scores found.",
+            ),
+            QualityGateRule(
+                id="personality-case-minimums",
+                passed=bool(personality_scores) and not personality_score_failures,
+                detail=(
+                    "Every personality case scored at least 3 in character specificity and "
+                    "conversational presence."
+                    if personality_scores and not personality_score_failures
+                    else "Personality cases below 3: "
+                    + (", ".join(personality_score_failures) or "scores missing")
+                ),
+            ),
+            QualityGateRule(
+                id="personality-dimensions-average",
+                passed=(
+                    len(personality_scores) == personality_case_count * len(_PERSONALITY_CATEGORIES)
+                    and personality_average >= 3.5
+                ),
+                detail=f"Combined personality-dimension average={personality_average:.2f}.",
             ),
             QualityGateRule(
                 id="core-historical-no-score-one",

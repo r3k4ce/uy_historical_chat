@@ -67,3 +67,65 @@ entries:
       - "corpus validate --production and deterministic sidecar regeneration: passed; active PDF SHA-256 remained d27cad55d58cf92ec30d48852fb6a46fada9ac4766d9144366e8775dbc723797."
       - "Local FastAPI smoke: health 200, inline PDF HEAD 200, and bytes=0-9 returned 206 with the PDF prefix."
       - "Live 60-case gate and baseline promotion: not completed after provider billing access was withdrawn; no further provider calls authorized."
+  - time_utc: "2026-07-16T00:20:07Z"
+    time_local: "2026-07-15T21:20:07-03:00"
+    summary: "Migrated grounded chat from Gemini File Search to stateless LangChain RAG."
+    changed:
+      - "Added Groq/OpenAI chat selection, OpenAI embeddings, validated persistent Chroma indexing with rollback-safe replacement, MMR retrieval, streamed source markers, and provider-neutral usage/errors."
+      - "Replaced interaction IDs with validated browser-supplied history; updated evaluator identity metadata, frontend retries/reset, active setup docs, and ignored disposable indexes."
+      - "Removed google-genai, Gemini ingestion/reconciliation, and active File Search assumptions; no real index or live provider/evaluation call was made."
+    verification:
+      - "Backend pytest with coverage: 257 passed, 88.28%; Ruff and Pyright passed before final hardening."
+      - "Frontend Vitest: 63 passed; TypeScript passed; final lint rerun included in repository check."
+      - "Live Groq/OpenAI smoke, real Chroma build, and live evaluation: intentionally skipped by approved plan."
+  - time_utc: "2026-07-16T03:57:32Z"
+    time_local: "2026-07-16T00:57:32-03:00"
+    summary: "Migrated embeddings from OpenAI to Voyage 4 Large and made Groq the sole chat provider."
+    changed:
+      - "Added a batched Voyage adapter with document/query roles, float output, strict non-truncation, 1.024-dimensional defaults, response-shape validation, and one SDK retry."
+      - "Removed OpenAI chat/configuration and langchain-openai; added Voyage credentials/dependency and strict cosine Chroma identity validation for provider, model, dimensions, dtype, corpus, schema, and chunking."
+      - "Updated evaluation reproducibility metadata, offline tests, environment/setup documentation, and rollback-safe --replace guidance; no index, live evaluation, or baseline was created."
+    verification:
+      - "Backend pytest after implementation: 265 passed at 88.56% coverage."
+      - "Backend Ruff format/check and Pyright: passed."
+      - "Full ./scripts/check.sh: passed; backend 265 tests at 88.56% coverage, frontend 63 tests, Ruff, Pyright, TypeScript, ESLint, and Vite build."
+  - time_utc: "2026-07-16T04:09:37Z"
+    time_local: "2026-07-16T01:09:37-03:00"
+    summary: "Expanded the README into an end-to-end setup and usage guide."
+    changed:
+      - "Added Linux/macOS and PowerShell quick starts covering dependency bootstrap, local credentials, corpus validation, initial Voyage indexing, server startup/shutdown, health checks, and first use."
+      - "Documented index replacement, repository verification, common setup/runtime failures, and the cost-bearing optional evaluation workflow."
+    verification:
+      - "README repository contract: 5 tests passed; git diff whitespace validation passed."
+  - time_utc: "2026-07-16T15:00:34Z"
+    time_local: "2026-07-16T12:00:34-03:00"
+    summary: "Replaced the Artigas-only prompt with a reusable first-person historical character prompt."
+    changed:
+      - "Added a frozen validated character profile, a shared sub-500-word template, exact limitation/reconstruction fallbacks, and compatibility loaders for Artigas."
+      - "Added critical offline checks for visible retrieval disclosures and third-person Artigas aliases; updated fallback repair, prompt hashing, fidelity rubric, and README behavior."
+    verification:
+      - "Offline targeted backend suite: 140 passed; Ruff format/check and Pyright passed."
+      - "No Groq, Voyage, HTTP, live evaluation, index build, smoke test, or baseline promotion was run."
+  - time_utc: "2026-07-16T17:26:56Z"
+    time_local: "2026-07-16T14:26:56-03:00"
+    summary: "Strengthened Artigas with reusable layered personality prompting and strict personality review gates."
+    changed:
+      - "Split one-call prompting into universal system, character developer, and current-evidence developer messages while retaining combined string loaders and an 800-word ceiling."
+      - "Expanded immutable character profiles with convictions, temperament, visitor relationship, register, conversational constraints, forbidden inventions, and four validated good/bad scenarios."
+      - "Added conversational presence to the human rubric, per-personality-case 3/4 minimums, a combined 3.5 personality average, and the character authoring/manual acceptance guide."
+    verification:
+      - "Targeted offline backend suite: 137 passed; final focused regression suite: 121 passed."
+      - "Full ./scripts/check.sh: passed; backend 302 tests at 88.79% coverage, frontend 63 tests, Ruff, Pyright, TypeScript, ESLint, and Vite build."
+      - "No Groq, Voyage, HTTP, live evaluation, index build, smoke test, or baseline promotion was run."
+  - time_utc: "2026-07-16T18:58:42Z"
+    time_local: "2026-07-16T15:58:42-03:00"
+    summary: "Tuned Artigas for direct, relaxed, evidence-disciplined conversation."
+    changed:
+      - "Replaced fixed historical answer lengths with direct entry, adaptive brevity, organic stopping, varied prose, and explicit bans on unrequested mini-essay scaffolding; retained exact fallbacks, citations, safety, attribution, and first-person character rules."
+      - "Set chat temperature to 0.6, added validated low/medium/high reasoning effort defaulting to medium, passed both controls to Groq, and bound reasoning effort into evaluation resume/promotion metadata."
+      - "Tightened the conversational-presence rubric and documented restart-based configuration plus the manual temperature/reasoning sweep."
+    verification:
+      - "Targeted config, provider, evaluation, prompt, and repository-doc suite: 103 passed; neighboring offline chat, citation, safety, and evaluation suite: 82 passed."
+      - "Static combined prompt: 799 words; git diff whitespace validation passed."
+      - "Full ./scripts/check.sh: passed; backend 308 tests at 88.80% coverage, frontend 63 tests at 94.43% statement coverage, Ruff, Pyright, TypeScript, ESLint, and Vite build."
+      - "No Groq, Voyage, HTTP, index-build, live-evaluation, or other provider call was run."

@@ -250,7 +250,6 @@ function isCompleteEvent(value: unknown): value is CompleteEvent {
   if (!isRecord(value) || !isRecord(value.usage)) return false;
   const usage = value.usage;
   return (
-    typeof value.interaction_id === "string" &&
     typeof value.final_text === "string" &&
     Array.isArray(value.citations) &&
     value.citations.every(isCitation) &&

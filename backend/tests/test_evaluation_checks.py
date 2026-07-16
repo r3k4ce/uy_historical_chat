@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
 from artigas_mvp_backend.evaluation_checks import normalize_phrase, run_turn_checks
 from artigas_mvp_backend.evaluation_models import TurnExpectation
 from artigas_mvp_backend.models import CompleteEventData, LearningState
@@ -27,7 +29,6 @@ def _completion() -> CompleteEventData:
     text = "La soberan\u00eda popular sostiene la libertad civil."
     return CompleteEventData.model_validate(
         {
-            "interaction_id": "interaction-1",
             "final_text": text,
             "citations": [
                 {
@@ -239,6 +240,85 @@ def test_all_prompt_forbidden_quote_delimiters_fail_the_quality_gate() -> None:
         )
 
         assert quote_check.passed is False
+
+
+@pytest.mark.parametrize(
+    "phrase",
+    [
+        "documentos disponibles",
+        "documentación disponible",
+        "fuentes disponibles",
+        "corpus",
+        "fragmentos recuperados",
+        "material recuperado",
+        "evidencia recuperada",
+        "evidencia disponible",
+        "según los documentos",
+        "según las fuentes",
+    ],
+)
+def test_character_retrieval_disclosure_is_a_critical_prompt_safety_failure(
+    phrase: str,
+) -> None:
+    completion = _completion().model_copy(update={"final_text": f"Explico esto {phrase}."})
+
+    check = next(
+        check
+        for check in run_turn_checks(
+            completion,
+            _expectation(required_concepts=()),
+            corpus=None,
+            case_critical=False,
+        )
+        if check.id == "character-retrieval-disclosure"
+    )
+
+    assert check.passed is False
+    assert check.critical is True
+
+
+@pytest.mark.parametrize("alias", ["Artigas", "José Artigas", "José Gervasio Artigas"])
+def test_third_person_character_alias_is_a_critical_prompt_safety_failure(alias: str) -> None:
+    completion = _completion().model_copy(
+        update={"final_text": f"En ese momento, {alias} sostuvo esa posición."}
+    )
+
+    check = next(
+        check
+        for check in run_turn_checks(
+            completion,
+            _expectation(required_concepts=()),
+            corpus=None,
+            case_critical=False,
+        )
+        if check.id == "character-third-person-self-reference"
+    )
+
+    assert check.passed is False
+    assert check.critical is True
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Las Instrucciones del Año XIII organizaron aquella decisión.",
+        "La carta al Cabildo explicó el desacuerdo.",
+    ],
+)
+def test_historical_text_references_do_not_trigger_character_checks(text: str) -> None:
+    completion = _completion().model_copy(update={"final_text": text})
+    checks = {
+        check.id: check
+        for check in run_turn_checks(
+            completion,
+            _expectation(required_concepts=()),
+            corpus=None,
+            case_critical=False,
+        )
+    }
+
+    assert checks["character-retrieval-disclosure"].passed is True
+    assert checks["character-third-person-self-reference"].passed is True
 
 
 def test_provider_errors_are_not_deterministic_quality_passes() -> None:

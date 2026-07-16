@@ -11,21 +11,29 @@ def test_repository_documentation_covers_required_operation_contract() -> None:
     assert not (ROOT / ".env.example").exists()
 
     environment_names = (
-        "GEMINI_API_KEY",
-        "GEMINI_FILE_SEARCH_STORE",
-        "GEMINI_MODEL",
-        "GEMINI_THINKING_LEVEL",
-        "GEMINI_MAX_OUTPUT_TOKENS",
-        "GEMINI_TEMPERATURE",
+        "CHAT_MODEL",
+        "GROQ_API_KEY",
+        "VOYAGE_API_KEY",
+        "EMBEDDING_MODEL",
+        "EMBEDDING_DIMENSIONS",
+        "CHROMA_PERSIST_DIRECTORY",
+        "CHAT_MAX_OUTPUT_TOKENS",
+        "CHAT_TEMPERATURE",
+        "CHAT_REASONING_EFFORT",
         "MAX_USER_MESSAGE_CHARS",
         "MAX_CONVERSATION_TURNS",
-        "GEMINI_REQUEST_TIMEOUT_SECONDS",
-        "GEMINI_MAX_RETRIES",
+        "CHAT_REQUEST_TIMEOUT_SECONDS",
+        "CHAT_MAX_RETRIES",
+        "CHAT_INPUT_PRICE_USD_PER_MILLION",
+        "CHAT_OUTPUT_PRICE_USD_PER_MILLION",
         "COST_WARNING_USD_PER_REQUEST",
     )
     for name in environment_names:
         assert name in readme
         assert name in env_example
+    for removed_name in ("CHAT_PROVIDER", "OPENAI_API_KEY"):
+        assert removed_name not in readme
+        assert removed_name not in env_example
 
     required_readme_text = (
         "Python 3.12",
@@ -34,7 +42,7 @@ def test_repository_documentation_covers_required_operation_contract() -> None:
         "data/artigas-corpus.pdf",
         "artigas_mvp_backend.corpus prepare",
         "artigas_mvp_backend.corpus validate --production",
-        "artigas_mvp_backend.ingest",
+        "artigas_mvp_backend.index_corpus",
         "artigas_mvp_backend.main:app",
         "artigas_mvp_backend.evaluate run --all --confirm-cost",
         "artigas_mvp_backend.evaluate review",
@@ -54,8 +62,21 @@ def test_repository_documentation_covers_required_operation_contract() -> None:
         "no se muestra un número de página inventado",
         "desaparecen al recargar",
         "guardarraíl de experiencia de usuario",
-        "retención predeterminada del proveedor",
+        "historial explícito",
         "backend/.env",
+        "Groq model identifier",
+        "Inicio rápido",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:8000/api/health",
+        "Ctrl+C",
+        "configuration_error",
+        "corpus_unavailable",
+        "--replace",
+        "Solución de problemas",
+        "primera persona",
+        "cadencia oriental sutil",
+        "0.4` a `0.8",
+        "reinicie el backend",
     )
     for text in required_readme_text:
         assert text in readme
@@ -78,9 +99,9 @@ def test_repository_documentation_covers_required_operation_contract() -> None:
         "corpus validate --production",
         "PowerShell",
         "Linux",
-        "File Search",
-        "nombre visible",
-        "hash",
+        "Índice Chroma",
+        "artigas-corpus-v1",
+        "SHA-256",
         "400",
         "60",
         "60 casos",
@@ -90,9 +111,68 @@ def test_repository_documentation_covers_required_operation_contract() -> None:
         "4.096",
         "baseline.json",
         "promote",
+        "--replace",
     )
     for text in required_maintenance_text:
         assert text in maintenance
+
+    for obsolete in ("GEMINI_", "Gemini", "File Search", "artigas_mvp_backend.ingest"):
+        assert obsolete not in readme
+        assert obsolete not in maintenance
+
+
+def test_personality_rubrics_cover_character_specificity_and_conversational_presence() -> None:
+    rubric = (ROOT / "evals" / "rubric.yaml").read_text(encoding="utf-8")
+
+    highest_score = rubric.split("character_fidelity:", maxsplit=1)[1].split("4:", maxsplit=1)[1]
+    assert "primera persona" in highest_score
+    assert "sabor de época sobrio" in highest_score
+    assert "maquinaria de recuperación" in highest_score
+    presence = rubric.split("conversational_presence:", maxsplit=1)[1]
+    assert "presencia conversacional" in presence.casefold()
+    assert "apertura" in presence.casefold()
+    assert "asistente genérico" in presence.casefold()
+    assert "entrada directa" in presence.casefold()
+    assert "brevedad" in presence.casefold()
+    assert "cierre orgánico" in presence.casefold()
+    assert "tesis" in presence.casefold()
+    assert "recapitul" in presence.casefold()
+    assert "estructura" in presence.casefold()
+
+
+def test_character_authoring_guide_defines_required_profile_and_manual_gate() -> None:
+    guide = (ROOT / "docs" / "character-authoring.md").read_text(encoding="utf-8")
+
+    for field in (
+        "convictions",
+        "temperament",
+        "visitor_relationship",
+        "address_form",
+        "linguistic_register",
+        "rhetorical_habits",
+        "conversational_rules",
+        "forbidden_inventions",
+        "examples",
+    ):
+        assert f"`{field}`" in guide
+    for scenario in (
+        "Buenas tardes.",
+        "Dígame algo sin discurso",
+        "concentrar el poder",
+        "¿Y qué cambiaba eso en la relación con Buenos Aires?",
+        "una simulación?",
+        "Explíqueme aquello.",
+    ):
+        assert scenario in guide
+    assert "3/4" in guide
+    assert "3,5" in guide
+    assert "una sola pregunta" in guide
+    for setting in ("CHAT_TEMPERATURE", "CHAT_REASONING_EFFORT"):
+        assert setting in guide
+    for value in ("`0.4`", "`0.6`", "`0.8`", "`low`", "`medium`", "`high`"):
+        assert value in guide
+    assert "reinicie el backend" in guide
+    assert "0.6 + medium" in guide
 
 
 def test_native_powershell_scripts_exist_and_cover_full_repository_checks() -> None:
@@ -134,7 +214,18 @@ def test_dependency_and_tool_versions_are_declared_at_their_project_roots() -> N
 
     assert backend["tool"]["uv"]["required-version"] == "==0.11.26"
     assert any(item.startswith("pydantic") for item in runtime)
-    assert any(item.startswith("google-genai") for item in runtime)
+    assert not any(item.startswith("google-genai") for item in runtime)
+    for dependency in (
+        "chromadb",
+        "langchain-chroma",
+        "langchain-core",
+        "langchain-groq",
+        "voyageai",
+        "langchain-text-splitters",
+        "tiktoken",
+    ):
+        assert any(item.startswith(dependency) for item in runtime)
+    assert not any(item.startswith("langchain-openai") for item in runtime)
     assert "pypdf==6.14.2" in runtime
     assert "pyyaml==6.0.3" in runtime
     assert not any(item.startswith("pyyaml") for item in dev)

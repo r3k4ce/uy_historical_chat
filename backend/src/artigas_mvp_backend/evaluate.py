@@ -31,7 +31,7 @@ from artigas_mvp_backend.evaluation_models import (
     EvaluationDataset,
     EvaluationTurn,
 )
-from artigas_mvp_backend.models import CompleteEventData, LearningState
+from artigas_mvp_backend.models import CompleteEventData, HistoryMessage, LearningState
 from artigas_mvp_backend.services.corpus import CorpusService
 from artigas_mvp_backend.services.education import (
     advance_learning_state,
@@ -43,11 +43,6 @@ from artigas_mvp_backend.services.evidence import (
     build_source_cards,
     canonicalize_answer_text,
     classify_answer,
-)
-from artigas_mvp_backend.services.usage import (
-    CACHED_INPUT_USD_PER_MILLION,
-    INPUT_USD_PER_MILLION,
-    OUTPUT_AND_THOUGHT_USD_PER_MILLION,
 )
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
@@ -197,7 +192,6 @@ def _enrich_completion(
         corpus=corpus,
     )
     return CompleteEventData(
-        interaction_id=completed.interaction_id,
         final_text=final_text,
         citations=citations,
         answer_status=answer_status,
@@ -213,7 +207,7 @@ async def _run_live_turn(
     *,
     service: Any,
     corpus: CorpusService,
-    previous_interaction_id: str | None,
+    history: list[HistoryMessage],
     state: LearningState,
 ) -> tuple[CompleteEventData | None, dict[str, Any] | None]:
     iterator = None
@@ -222,7 +216,7 @@ async def _run_live_turn(
     try:
         iterator = service.stream(
             message=turn.prompt,
-            previous_interaction_id=previous_interaction_id,
+            history=list(history),
         )
         completed = None
         async for event in iterator:
@@ -252,7 +246,7 @@ async def _execute_case(
 ) -> dict[str, Any]:
     turns: list[dict[str, Any]] = []
     operational_errors: list[dict[str, Any]] = []
-    previous_interaction_id: str | None = None
+    history: list[HistoryMessage] = []
     carried_state = LearningState()
 
     for turn_number, turn in enumerate(case.turns, start=1):
@@ -264,7 +258,7 @@ async def _execute_case(
             if service is None:  # defensive: live selection always constructs it
                 error = {
                     "code": "configuration_error",
-                    "message": "La configuración de Gemini no está completa.",
+                    "message": "La configuración del servicio de conversación no está completa.",
                     "retryable": False,
                 }
                 completion = None
@@ -273,7 +267,7 @@ async def _execute_case(
                     turn,
                     service=service,
                     corpus=corpus,
-                    previous_interaction_id=previous_interaction_id,
+                    history=history,
                     state=input_state,
                 )
         latency_ms = max(0, round((clock() - started) * 1000))
@@ -305,7 +299,12 @@ async def _execute_case(
             operational_errors.append({"turn_number": turn_number, **error})
             break
         assert completion is not None
-        previous_interaction_id = completion.interaction_id
+        history.extend(
+            (
+                HistoryMessage(role="user", content=turn.prompt),
+                HistoryMessage(role="assistant", content=completion.final_text),
+            )
+        )
         carried_state = completion.learning_state.model_copy(deep=True)
 
     return {
@@ -319,14 +318,14 @@ async def _execute_case(
     }
 
 
-def _print_cost_notice(call_count: int, max_output_tokens: int, stdout: TextIO) -> None:
+def _print_cost_notice(call_count: int, settings: Settings, stdout: TextIO) -> None:
     noun = "llamada" if call_count == 1 else "llamadas"
     adjective = "real" if call_count == 1 else "reales"
     print(
         f"Se realizarán {call_count} {noun} {adjective} al modelo, una por turno live.",
         file=stdout,
     )
-    formatted_output_tokens = f"{max_output_tokens:,}".replace(",", ".")
+    formatted_output_tokens = f"{settings.chat_max_output_tokens:,}".replace(",", ".")
     print(
         f"Límites por llamada: {formatted_output_tokens} tokens de salida y "
         "2.000 caracteres de entrada.",
@@ -334,14 +333,13 @@ def _print_cost_notice(call_count: int, max_output_tokens: int, stdout: TextIO) 
     )
     print(
         "Precios por millón de tokens (USD): "
-        f"entrada {INPUT_USD_PER_MILLION}, "
-        f"entrada en caché {CACHED_INPUT_USD_PER_MILLION}, "
-        f"salida y pensamiento {OUTPUT_AND_THOUGHT_USD_PER_MILLION}.",
+        f"entrada {settings.input_price_usd_per_million}, "
+        f"salida {settings.output_price_usd_per_million}.",
         file=stdout,
     )
     print(
-        "File Search agrega recuperación, por lo que el cargo exacto no puede conocerse "
-        "de antemano.",
+        "La recuperación local no agrega llamadas al modelo de chat; la consulta de "
+        "embeddings puede tener un costo adicional.",
         file=stdout,
     )
 
@@ -360,7 +358,10 @@ def _new_payload(
         "generated_at": timestamp.isoformat().replace("+00:00", "Z"),
         "dataset_sha256": _sha256_file(dataset_path),
         "artifact_hashes": artifact_hashes,
-        "model": settings.gemini_model,
+        "provider": "groq",
+        "model": settings.chat_model,
+        "embedding_model": settings.embedding_model,
+        "corpus_sha256": artifact_hashes["corpus_pdf"],
         "settings": _runtime_settings(settings),
         "cases": [],
     }
@@ -388,9 +389,12 @@ def _load_resume(
         ArtifactPaths.repository_defaults(dataset=dataset_path)
     ):
         raise EvaluationDataError("Los artefactos de evaluación cambiaron desde la ejecución.")
-    if payload.get("model") != settings.gemini_model or payload.get(
-        "settings"
-    ) != _runtime_settings(settings):
+    if (
+        payload.get("provider") != "groq"
+        or payload.get("model") != settings.chat_model
+        or payload.get("embedding_model") != settings.embedding_model
+        or payload.get("settings") != _runtime_settings(settings)
+    ):
         raise EvaluationDataError("El resultado usa un modelo o configuración diferente.")
     if not isinstance(payload.get("cases"), list):
         raise EvaluationDataError("El resultado a reanudar no contiene casos válidos.")
@@ -544,7 +548,7 @@ def main(
     settings = Settings.from_env()
     live_turn_count = sum(len(case.turns) for case in cases if case.execution == "live")
     if live_turn_count:
-        _print_cost_notice(live_turn_count, settings.gemini_max_output_tokens, output_stream)
+        _print_cost_notice(live_turn_count, settings, output_stream)
         if not args.confirm_cost:
             print("Agregue --confirm-cost para autorizar las llamadas reales.", file=error_stream)
             return 2
@@ -580,9 +584,30 @@ def main(
             else CorpusService.load(CorpusPaths.repository_defaults())
         )
         if service_factory is None:
-            from artigas_mvp_backend.services.gemini import GeminiService
+            from artigas_mvp_backend.index_corpus import open_index
+            from artigas_mvp_backend.services.chat import (
+                ChatService,
+                RetrievalService,
+                create_chat_model,
+            )
+            from artigas_mvp_backend.services.embeddings import create_embeddings
 
-            service_factory = GeminiService
+            def default_service_factory(active_settings: Settings) -> ChatService:
+                store = open_index(
+                    CorpusPaths.repository_defaults(),
+                    active_settings.chroma_persist_directory,
+                    create_embeddings(active_settings),
+                    embedding_model=active_settings.embedding_model,
+                    dimensions=active_settings.embedding_dimensions,
+                )
+                return ChatService(
+                    active_settings,
+                    model=create_chat_model(active_settings),
+                    retriever=RetrievalService(store),
+                )
+
+            service_factory = default_service_factory
+
         _atomic_write_json(output_path, payload)
         asyncio.run(
             _execute_pending_cases(

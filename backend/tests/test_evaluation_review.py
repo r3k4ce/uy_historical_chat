@@ -25,6 +25,7 @@ CATEGORIES = [
     "source_interpretation",
     "educational_usefulness",
     "character_fidelity",
+    "conversational_presence",
 ]
 CHECK_GROUPS = {
     "citation-numbering": "citation_integrity",
@@ -84,7 +85,6 @@ def _case(
     latency: int = 100,
 ) -> dict[str, object]:
     completion = {
-        "interaction_id": f"interaction-{case_id}",
         "final_text": f"Respuesta con Fragmento verificado para {case_id}",
         "answer_status": "documented",
         "citations": [
@@ -220,7 +220,9 @@ def _result(*cases: dict[str, object]) -> dict[str, object]:
         "schema_version": 2,
         "generated_at": "2026-07-15T00:00:00Z",
         "dataset_sha256": "dataset-hash",
-        "model": "gemini-3.5-flash",
+        "provider": "groq",
+        "model": "openai/gpt-oss-120b",
+        "embedding_model": "voyage-4-large",
         "settings": {},
         "cases": list(cases),
     }
@@ -245,7 +247,7 @@ def test_review_persists_each_case_and_resumes_without_reasking_identity(
         real_write(target, payload)
 
     monkeypatch.setattr(evaluation_review, "_atomic_write_json", recording_write)
-    first_input = io.StringIO("Codex\n4\n4\n4\n4\nPrimera nota\n")
+    first_input = io.StringIO("Codex\n4\n4\n4\n4\n4\nPrimera nota\n")
 
     with pytest.raises(EvaluationReviewError, match="interrumpida"):
         review_result(path, stdin=first_input, stdout=io.StringIO())
@@ -256,7 +258,7 @@ def test_review_persists_each_case_and_resumes_without_reasking_identity(
     assert writes[-1] == 1
 
     output = io.StringIO()
-    resumed_input = io.StringIO("4\n4\n4\n4\nSegunda nota\ns\nSin observaciones.\n")
+    resumed_input = io.StringIO("4\n4\n4\n4\n4\nSegunda nota\ns\nSin observaciones.\n")
     review_result(path, stdin=resumed_input, stdout=output)
 
     saved = json.loads(path.read_text(encoding="utf-8"))
@@ -294,13 +296,13 @@ def test_review_validates_scores_displays_failures_and_skips_fixture_cases(
     output = io.StringIO()
     review_result(
         path,
-        stdin=io.StringIO("Codex\n0\n5\nx\n4\n3\n2\n1\nnota\ns\nrevisado\n"),
+        stdin=io.StringIO("Codex\n0\n5\nx\n4\n3\n2\n1\n4\nnota\ns\nrevisado\n"),
         stdout=output,
     )
 
     saved = json.loads(path.read_text(encoding="utf-8"))
     assert saved["review"]["cases"]["live"]["scores"] == dict(
-        zip(CATEGORIES, [4, 3, 2, 1], strict=True)
+        zip(CATEGORIES, [4, 3, 2, 1, 4], strict=True)
     )
     assert "fixture" not in saved["review"]["cases"]
     assert output.getvalue().count("Ingrese un número entre 1 y 4") == 3
@@ -348,7 +350,7 @@ def test_review_repairs_partial_case_and_unacknowledged_performance(tmp_path: Pa
 
     review_result(
         path,
-        stdin=io.StringIO("4\n4\n4\n4\nrevisado\ns\naceptado\n"),
+        stdin=io.StringIO("4\n4\n4\n4\n4\nrevisado\ns\naceptado\n"),
         stdout=io.StringIO(),
     )
 
@@ -433,6 +435,8 @@ def test_compare_reports_every_gate_and_is_read_only(tmp_path: Path) -> None:
         "prompt-safety",
         "remaining-deterministic",
         "rubric-category-averages",
+        "personality-case-minimums",
+        "personality-dimensions-average",
         "core-historical-no-score-one",
         "critical-cases",
         "human-scores-complete",
@@ -452,6 +456,8 @@ def test_compare_reports_every_gate_and_is_read_only(tmp_path: Path) -> None:
         ("critical-group", "citation-integrity"),
         ("remaining-rate", "remaining-deterministic"),
         ("category-average", "rubric-category-averages"),
+        ("personality-minimum", "personality-case-minimums"),
+        ("personality-average", "personality-dimensions-average"),
         ("core-one", "core-historical-no-score-one"),
         ("critical-case", "critical-cases"),
         ("missing-score", "human-scores-complete"),
@@ -479,6 +485,11 @@ def test_compare_enforces_each_quality_failure(
         checks[-2]["passed"] = False
     elif mutation == "category-average":
         payload["review"]["cases"]["case"]["scores"]["historical_accuracy"] = 3  # type: ignore[index]
+    elif mutation == "personality-minimum":
+        payload["review"]["cases"]["case"]["scores"]["conversational_presence"] = 2  # type: ignore[index]
+    elif mutation == "personality-average":
+        payload["review"]["cases"]["case"]["scores"]["character_fidelity"] = 3  # type: ignore[index]
+        payload["review"]["cases"]["case"]["scores"]["conversational_presence"] = 3  # type: ignore[index]
     elif mutation == "core-one":
         payload["review"]["cases"]["case"]["scores"]["character_fidelity"] = 1  # type: ignore[index]
     elif mutation == "critical-case":
@@ -559,7 +570,7 @@ def test_review_requires_nonempty_explanations_for_material_regressions(tmp_path
         result,
         baseline_path=baseline,
         stdin=io.StringIO(
-            "Codex\n4\n4\n4\n4\nnota\ns\nobservado\n\nCosto aceptado.\n\nLatencia aceptada.\n"
+            "Codex\n4\n4\n4\n4\n4\nnota\ns\nobservado\n\nCosto aceptado.\n\nLatencia aceptada.\n"
         ),
         stdout=output,
     )

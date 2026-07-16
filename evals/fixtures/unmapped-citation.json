@@ -1,7 +1,6 @@
 {
   "schema_version": 1,
   "completion": {
-    "interaction_id": "fixture-unmapped-citation",
     "final_text": "La respuesta contiene una referencia que no puede vincularse de forma segura con una página del corpus local.",
     "citations": [
       {

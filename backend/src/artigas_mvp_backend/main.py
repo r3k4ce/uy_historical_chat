@@ -13,9 +13,11 @@ from artigas_mvp_backend.api.chat import router as chat_router
 from artigas_mvp_backend.api.corpus import router as corpus_router
 from artigas_mvp_backend.config import Settings, load_settings
 from artigas_mvp_backend.corpus import CorpusPaths
+from artigas_mvp_backend.index_corpus import open_index
 from artigas_mvp_backend.models import ErrorPayload
+from artigas_mvp_backend.services.chat import ChatService, RetrievalService, create_chat_model
 from artigas_mvp_backend.services.corpus import CorpusService
-from artigas_mvp_backend.services.gemini import GeminiService
+from artigas_mvp_backend.services.embeddings import create_embeddings
 
 
 def _validation_payload(exc: RequestValidationError) -> tuple[int, ErrorPayload]:
@@ -44,7 +46,7 @@ def _validation_payload(exc: RequestValidationError) -> tuple[int, ErrorPayload]
 
 def create_app(
     settings: Settings | None = None,
-    gemini_service: GeminiService | Any | None = None,
+    chat_service: ChatService | Any | None = None,
     corpus_service: CorpusService | Any | None = None,
     corpus_paths: CorpusPaths | None = None,
 ) -> FastAPI:
@@ -53,24 +55,38 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
-        owned_service: GeminiService | None = None
+        owned_service: ChatService | None = None
         if corpus_service is None:
             application.state.corpus_service = CorpusService.load(application_corpus_paths)
-        if gemini_service is None and application_settings.chat_configuration_error() is None:
-            owned_service = GeminiService(application_settings)
-            application.state.gemini_service = owned_service
+        if chat_service is None and application_settings.chat_configuration_error() is None:
+            try:
+                store = open_index(
+                    application_corpus_paths,
+                    application_settings.chroma_persist_directory,
+                    create_embeddings(application_settings),
+                    embedding_model=application_settings.embedding_model,
+                    dimensions=application_settings.embedding_dimensions,
+                )
+                owned_service = ChatService(
+                    application_settings,
+                    model=create_chat_model(application_settings),
+                    retriever=RetrievalService(store),
+                )
+                application.state.chat_service = owned_service
+            except (OSError, ValueError) as exc:
+                application.state.chat_index_error = str(exc)
         try:
             yield
         finally:
             if owned_service is not None:
-                aio_client = getattr(owned_service.client, "aio", None)
-                close = getattr(aio_client, "aclose", None)
+                close = getattr(owned_service.model, "aclose", None)
                 if close is not None:
                     await close()
 
     app = FastAPI(title="artigas-mvp", lifespan=lifespan)
     app.state.settings = application_settings
-    app.state.gemini_service = gemini_service
+    app.state.chat_service = chat_service
+    app.state.chat_index_error = None
     app.state.corpus_service = corpus_service
 
     @app.exception_handler(RequestValidationError)

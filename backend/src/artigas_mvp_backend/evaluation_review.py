@@ -71,6 +71,7 @@ def _load_result(path: Path) -> dict[str, Any]:
         "source_interpretation",
         "educational_usefulness",
         "character_fidelity",
+        "conversational_presence",
     }
     for case in cases:
         if (

@@ -40,12 +40,12 @@ const emptyState = {
 };
 
 function completion(
-  interaction_id = "interaction-1",
+  _interactionId = "interaction-1",
   final_text = "Respuesta canónica",
   citations: Citation[] = [],
 ): CompleteEvent {
+  void _interactionId;
   return {
-    interaction_id,
     final_text,
     citations,
     answer_status: "conversational",
@@ -199,6 +199,7 @@ describe("ChatPage", () => {
     expect(streamChatMock).toHaveBeenCalledWith(
       {
         message: "¿Qué defendía?",
+        history: [],
         turn_number: 1,
         learning_state: emptyState,
       },
@@ -316,6 +317,7 @@ describe("ChatPage", () => {
     await waitFor(() => expect(streamChatMock).toHaveBeenCalledOnce());
     expect(streamChatMock.mock.calls[0][0]).toEqual({
       message: suggestions[0],
+      history: [],
       turn_number: 1,
       learning_state: emptyState,
     });
@@ -571,7 +573,7 @@ describe("ChatPage", () => {
     expect(streamChatMock).not.toHaveBeenCalled();
   });
 
-  test("continues from only the latest completed interaction", async () => {
+  test("continues with the completed conversation history", async () => {
     streamChatMock
       .mockImplementationOnce(async (_request, callbacks) => {
         callbacks.onComplete(completion("interaction-1", "Primera"));
@@ -588,7 +590,10 @@ describe("ChatPage", () => {
 
     expect(streamChatMock.mock.calls[1][0]).toEqual({
       message: "Segunda pregunta",
-      previous_interaction_id: "interaction-1",
+      history: [
+        { role: "user", content: "Primera pregunta" },
+        { role: "assistant", content: "Primera" },
+      ],
       turn_number: 2,
       learning_state: emptyState,
     });
@@ -644,7 +649,7 @@ describe("ChatPage", () => {
     expect(screen.queryByText("Pregunta temporal")).not.toBeInTheDocument();
   });
 
-  test("shows a safe retry and reuses the message, turn, and prior interaction", async () => {
+  test("shows a safe retry and reuses the message, turn, and history snapshot", async () => {
     const timeout: ChatError = {
       code: "provider_timeout",
       message: "La respuesta demoró demasiado.",
@@ -669,7 +674,10 @@ describe("ChatPage", () => {
     expect(await screen.findByText("Recuperada")).toBeInTheDocument();
     expect(streamChatMock.mock.calls[2][0]).toEqual({
       message: "Segunda pregunta",
-      previous_interaction_id: "interaction-1",
+      history: [
+        { role: "user", content: "Primera pregunta" },
+        { role: "assistant", content: "Primera" },
+      ],
       turn_number: 2,
       learning_state: emptyState,
     });

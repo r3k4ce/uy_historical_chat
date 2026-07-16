@@ -16,9 +16,11 @@ import yaml
 
 from artigas_mvp_backend.config import Settings
 from artigas_mvp_backend.corpus import CorpusPaths, sha256_file
-from artigas_mvp_backend.ingest import (
-    FILE_SEARCH_MAX_OVERLAP_TOKENS,
-    FILE_SEARCH_MAX_TOKENS_PER_CHUNK,
+from artigas_mvp_backend.index_corpus import (
+    CHUNK_OVERLAP,
+    CHUNK_SIZE,
+    COLLECTION_NAME,
+    INDEX_SCHEMA_VERSION,
 )
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
@@ -54,7 +56,7 @@ class ArtifactPaths:
             / "src"
             / "artigas_mvp_backend"
             / "prompts"
-            / "artigas.txt",
+            / "historical_character.txt",
             prompt_loader=REPOSITORY_ROOT
             / "backend"
             / "src"
@@ -97,11 +99,25 @@ def current_artifact_hashes(paths: ArtifactPaths) -> dict[str, str]:
 def runtime_settings(settings: Settings) -> dict[str, Any]:
     """Return only reproducibility settings; credentials and store IDs are excluded."""
     return {
-        "thinking_level": settings.gemini_thinking_level,
-        "max_output_tokens": settings.gemini_max_output_tokens,
-        "temperature": settings.gemini_temperature,
-        "chunk_tokens": FILE_SEARCH_MAX_TOKENS_PER_CHUNK,
-        "chunk_overlap_tokens": FILE_SEARCH_MAX_OVERLAP_TOKENS,
+        "chat_provider": "groq",
+        "chat_model": settings.chat_model,
+        "embedding_provider": "voyage",
+        "embedding_model": settings.embedding_model,
+        "embedding_dimensions": settings.embedding_dimensions,
+        "embedding_dtype": "float",
+        "distance": "cosine",
+        "collection": COLLECTION_NAME,
+        "index_schema_version": INDEX_SCHEMA_VERSION,
+        "max_output_tokens": settings.chat_max_output_tokens,
+        "temperature": settings.chat_temperature,
+        "chat_reasoning_effort": settings.chat_reasoning_effort,
+        "request_timeout_seconds": settings.chat_request_timeout_seconds,
+        "max_retries": settings.chat_max_retries,
+        "retrieval": {"search_type": "mmr", "k": 6, "fetch_k": 20},
+        "chunk_tokens": CHUNK_SIZE,
+        "chunk_overlap_tokens": CHUNK_OVERLAP,
+        "input_price_usd_per_million": settings.input_price_usd_per_million,
+        "output_price_usd_per_million": settings.output_price_usd_per_million,
     }
 
 
@@ -266,7 +282,9 @@ def _baseline_payload(
         "reviewer": reviewer,
         "source_result_sha256": result_sha256,
         "artifact_hashes": hashes,
+        "provider": result["provider"],
         "model": result["model"],
+        "embedding_model": result["embedding_model"],
         "settings": result["settings"],
         "results": case_results,
         "scores": dict(report.category_averages),
@@ -300,7 +318,12 @@ def promote_result(
     ):
         raise EvaluationBaselineError("Los artefactos actuales cambiaron desde la evaluación.")
     expected_settings = runtime_settings(settings)
-    if result.get("model") != settings.gemini_model or result.get("settings") != expected_settings:
+    if (
+        result.get("provider") != "groq"
+        or result.get("model") != settings.chat_model
+        or result.get("embedding_model") != settings.embedding_model
+        or result.get("settings") != expected_settings
+    ):
         raise EvaluationBaselineError("El modelo o la configuración actual difieren del resultado.")
 
     baseline_sha256 = _assert_replaceable_baseline(baseline_path)

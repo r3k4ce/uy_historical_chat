@@ -22,10 +22,10 @@ from artigas_mvp_backend.evaluation_models import (
     HumanRubric,
     TurnExpectation,
 )
-from artigas_mvp_backend.models import Citation
+from artigas_mvp_backend.models import Citation, HistoryMessage
+from artigas_mvp_backend.services.chat import ChatCompleted, ChatTextDelta
 from artigas_mvp_backend.services.corpus import CorpusService
 from artigas_mvp_backend.services.evidence import analyze_citations
-from artigas_mvp_backend.services.gemini import GeminiCompleted, GeminiTextDelta
 from artigas_mvp_backend.services.usage import NormalizedUsage
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -111,6 +111,7 @@ def test_every_turn_has_a_complete_bounded_expectation() -> None:
         "source_interpretation",
         "educational_usefulness",
         "character_fidelity",
+        "conversational_presence",
     }
 
     for case in dataset.cases:
@@ -508,6 +509,7 @@ def test_rubric_defines_every_category_and_integer_score() -> None:
         "source_interpretation",
         "educational_usefulness",
         "character_fidelity",
+        "conversational_presence",
     }
     for category in rubric.categories.values():
         assert set(category.scores) == {1, 2, 3, 4}
@@ -515,7 +517,7 @@ def test_rubric_defines_every_category_and_integer_score() -> None:
     scores = cast(tuple[Literal[1, 2, 3, 4], ...], (1, 2, 3, 4))
     for score in scores:
         descriptions = {category.scores[score] for category in rubric.categories.values()}
-        assert len(descriptions) == 4
+        assert len(descriptions) == 5
 
 
 def test_models_reject_incomplete_turns_and_invalid_fixture_shapes() -> None:
@@ -614,13 +616,12 @@ def _write_execution_dataset(path: Path, *, fixture: bool = False) -> None:
 
 class _FakeService:
     def __init__(self) -> None:
-        self.calls: list[tuple[str, str | None]] = []
+        self.calls: list[tuple[str, list[HistoryMessage]]] = []
 
-    async def stream(self, *, message: str, previous_interaction_id: str | None):
-        self.calls.append((message, previous_interaction_id))
-        yield GeminiTextDelta(delta="respuesta")
-        yield GeminiCompleted(
-            interaction_id=f"interaction-{len(self.calls)}",
+    async def stream(self, *, message: str, history: list[HistoryMessage]):
+        self.calls.append((message, history))
+        yield ChatTextDelta(delta="respuesta")
+        yield ChatCompleted(
             final_text="respuesta documentada",
             citations=(),
             usage=NormalizedUsage(
@@ -634,15 +635,15 @@ class _FakeService:
         )
 
 
-def test_run_carries_interaction_state_and_writes_schema_v2_atomically(
+def test_run_carries_explicit_history_and_writes_schema_v2_atomically(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     dataset = tmp_path / "cases.yaml"
     _write_execution_dataset(dataset)
     results_dir = tmp_path / "results"
     service = _FakeService()
-    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
-    monkeypatch.setenv("GEMINI_FILE_SEARCH_STORE", "fileSearchStores/test")
+    monkeypatch.setenv("GROQ_API_KEY", "test-key")
+    monkeypatch.setenv("VOYAGE_API_KEY", "embedding-key")
     stdout = io.StringIO()
 
     result = main(
@@ -655,8 +656,12 @@ def test_run_carries_interaction_state_and_writes_schema_v2_atomically(
 
     assert result == 0
     assert service.calls == [
-        ("Primera pregunta", None),
-        ("Segunda pregunta", "interaction-1"),
+        ("Primera pregunta", []),
+        ("Segunda pregunta", service.calls[1][1]),
+    ]
+    assert [(item.role, item.content) for item in service.calls[1][1]] == [
+        ("user", "Primera pregunta"),
+        ("assistant", "respuesta documentada"),
     ]
     output_path = next(results_dir.glob("*.json"))
     payload = json.loads(output_path.read_text(encoding="utf-8"))
@@ -672,7 +677,14 @@ def test_run_carries_interaction_state_and_writes_schema_v2_atomically(
         "evaluation_rubric",
     }
     assert len(payload["cases"][0]["turns"]) == 2
-    assert payload["cases"][0]["turns"][0]["completion"]["interaction_id"] == "interaction-1"
+    assert "interaction_id" not in payload["cases"][0]["turns"][0]["completion"]
+    assert payload["provider"] == "groq"
+    assert payload["model"] == "openai/gpt-oss-120b"
+    assert payload["embedding_model"] == "voyage-4-large"
+    assert payload["settings"]["embedding_provider"] == "voyage"
+    assert payload["settings"]["embedding_dimensions"] == 1024
+    assert payload["settings"]["embedding_dtype"] == "float"
+    assert payload["settings"]["distance"] == "cosine"
     assert payload["cases"][0]["turns"][1]["learning_state"] == {
         "shown_action_ids": [],
         "selected_action_ids": [],
@@ -758,8 +770,8 @@ def test_all_live_cases_share_one_event_loop(
             yield event
 
     service.stream = recording_stream  # type: ignore[method-assign]
-    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
-    monkeypatch.setenv("GEMINI_FILE_SEARCH_STORE", "fileSearchStores/test")
+    monkeypatch.setenv("GROQ_API_KEY", "test-key")
+    monkeypatch.setenv("VOYAGE_API_KEY", "embedding-key")
 
     result = main(
         ["run", "--all", "--confirm-cost"],
@@ -808,6 +820,37 @@ def test_resume_rejects_changed_runtime_settings_and_duplicate_cases(
     assert "reanudar" in stderr.getvalue().casefold() or "resultado" in stderr.getvalue().casefold()
 
 
+def test_resume_rejects_a_different_reasoning_effort(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dataset = tmp_path / "cases.yaml"
+    _write_execution_dataset(dataset, fixture=True)
+    results = tmp_path / "results"
+    assert (
+        main(
+            ["run", "--all"],
+            dataset_path=dataset,
+            results_dir=results,
+            stdout=io.StringIO(),
+        )
+        == 0
+    )
+    result_path = next(results.glob("*.json"))
+    monkeypatch.setenv("CHAT_REASONING_EFFORT", "high")
+    stderr = io.StringIO()
+
+    result = main(
+        ["run", "--all", "--resume", str(result_path)],
+        dataset_path=dataset,
+        results_dir=results,
+        stdout=io.StringIO(),
+        stderr=stderr,
+    )
+
+    assert result == 2
+    assert "configuración diferente" in stderr.getvalue()
+
+
 def test_review_and_compare_cli_are_injectable_and_reject_unverifiable_checks(
     tmp_path: Path,
 ) -> None:
@@ -835,7 +878,9 @@ def test_review_and_compare_cli_are_injectable_and_reject_unverifiable_checks(
                 "schema_version": 2,
                 "generated_at": "2026-07-15T00:00:00Z",
                 "dataset_sha256": "hash",
-                "model": "gemini-3.5-flash",
+                "provider": "groq",
+                "model": "openai/gpt-oss-120b",
+                "embedding_model": "voyage-4-large",
                 "settings": {},
                 "cases": [
                     {

@@ -68,7 +68,7 @@ EXPECTED_CORRECTED_LEARNING_QUESTIONS = {
 }
 
 
-def test_real_corpus_service_loads_without_gemini_and_resolves_all_documents() -> None:
+def test_real_corpus_service_loads_without_provider_and_resolves_all_documents() -> None:
     service = CorpusService.load(CorpusPaths.repository_defaults(), production_ready=True)
 
     assert service.sidecar.page_count == 74

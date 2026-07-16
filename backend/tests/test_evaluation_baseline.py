@@ -14,6 +14,7 @@ from artigas_mvp_backend.evaluation_baseline import (
     EvaluationBaselineError,
     current_artifact_hashes,
     promote_result,
+    runtime_settings,
 )
 
 
@@ -44,14 +45,10 @@ def _result(path: Path, artifacts: ArtifactPaths) -> dict[str, object]:
         "generated_at": "2026-07-15T00:00:00Z",
         "dataset_sha256": hashes["evaluation_dataset"],
         "artifact_hashes": hashes,
-        "model": "gemini-3.5-flash",
-        "settings": {
-            "thinking_level": "low",
-            "max_output_tokens": 4096,
-            "temperature": 0.4,
-            "chunk_tokens": 400,
-            "chunk_overlap_tokens": 60,
-        },
+        "provider": "groq",
+        "model": "openai/gpt-oss-120b",
+        "embedding_model": "voyage-4-large",
+        "settings": runtime_settings(Settings()),
         "cases": [
             {
                 "id": "complete-case",
@@ -127,8 +124,15 @@ def test_promotion_requires_exact_result_hash_and_writes_minimal_baseline(
     assert saved["promoted_at"] == "2026-07-15T02:00:00Z"
     assert saved["source_result_sha256"] == result_hash
     assert saved["artifact_hashes"] == current_artifact_hashes(artifacts)
-    assert saved["model"] == "gemini-3.5-flash"
+    assert saved["provider"] == "groq"
+    assert saved["model"] == "openai/gpt-oss-120b"
+    assert saved["embedding_model"] == "voyage-4-large"
+    assert saved["settings"]["embedding_provider"] == "voyage"
+    assert saved["settings"]["embedding_dimensions"] == 1024
+    assert saved["settings"]["embedding_dtype"] == "float"
+    assert saved["settings"]["distance"] == "cosine"
     assert saved["settings"]["max_output_tokens"] == 4096
+    assert saved["settings"]["chat_reasoning_effort"] == "medium"
     assert saved["results"] == [
         {
             "id": "complete-case",
@@ -145,6 +149,25 @@ def test_promotion_requires_exact_result_hash_and_writes_minimal_baseline(
     assert "cases" not in saved
     assert not list(tmp_path.glob(".*baseline*.tmp"))
     assert result_hash in output.getvalue()
+
+
+def test_promotion_rejects_a_different_reasoning_effort(tmp_path: Path) -> None:
+    artifacts = _artifacts(tmp_path)
+    result = tmp_path / "result.json"
+    _result(result, artifacts)
+
+    with pytest.raises(EvaluationBaselineError, match="configuración"):
+        promote_result(
+            result,
+            baseline_path=tmp_path / "baseline.json",
+            artifacts=artifacts,
+            settings=Settings(chat_reasoning_effort="high"),
+            stdin=io.StringIO("unused\n"),
+            stdout=io.StringIO(),
+            gate_evaluator=lambda *_args, **_kwargs: _passing_report(),
+        )
+
+    assert not (tmp_path / "baseline.json").exists()
 
 
 @pytest.mark.parametrize(
@@ -292,6 +315,13 @@ def test_prompt_hash_binds_template_and_runtime_injection_source(tmp_path: Path)
 
     after = current_artifact_hashes(artifacts)
     assert after["prompt_runtime"] != before["prompt_runtime"]
+
+
+def test_repository_prompt_hash_uses_shared_template_and_profile_loader() -> None:
+    artifacts = ArtifactPaths.repository_defaults()
+
+    assert artifacts.prompt.name == "historical_character.txt"
+    assert artifacts.prompt_loader.name == "__init__.py"
 
 
 def test_promotion_rejects_result_changed_during_gate(tmp_path: Path) -> None:

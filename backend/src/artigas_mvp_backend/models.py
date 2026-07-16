@@ -45,13 +45,34 @@ class LearningState(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
-    previous_interaction_id: str | None = None
+    history: list["HistoryMessage"] = Field(default_factory=list)
     turn_number: int = Field(ge=1, le=12)
     learning_state: LearningState = Field(default_factory=LearningState)
 
     @field_validator("message", mode="before")
     @classmethod
     def trim_message(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def validate_completed_history(self) -> "ChatRequest":
+        if len(self.history) % 2:
+            raise ValueError("history must contain completed user/assistant pairs")
+        expected_roles = ("user", "assistant")
+        if any(item.role != expected_roles[index % 2] for index, item in enumerate(self.history)):
+            raise ValueError("history must alternate user and assistant messages")
+        if len(self.history) // 2 != self.turn_number - 1:
+            raise ValueError("history does not match turn_number")
+        return self
+
+
+class HistoryMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=12_000)
+
+    @field_validator("content", mode="before")
+    @classmethod
+    def trim_content(cls, value: object) -> object:
         return value.strip() if isinstance(value, str) else value
 
 
@@ -137,7 +158,6 @@ class TextEventData(BaseModel):
 
 
 class CompleteEventData(BaseModel):
-    interaction_id: str
     final_text: str
     citations: list[Citation]
     answer_status: AnswerStatus

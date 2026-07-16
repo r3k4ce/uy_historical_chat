@@ -16,6 +16,12 @@ from artigas_mvp_backend.models import (
     ErrorPayload,
     TextEventData,
 )
+from artigas_mvp_backend.services.chat import (
+    ChatCompleted,
+    ChatService,
+    ChatServiceError,
+    ChatTextDelta,
+)
 from artigas_mvp_backend.services.education import (
     advance_learning_state,
     normalize_learning_state,
@@ -26,12 +32,6 @@ from artigas_mvp_backend.services.evidence import (
     build_source_cards,
     canonicalize_answer_text,
     classify_answer,
-)
-from artigas_mvp_backend.services.gemini import (
-    GeminiCompleted,
-    GeminiService,
-    GeminiServiceError,
-    GeminiTextDelta,
 )
 from artigas_mvp_backend.services.usage import log_cancelled, log_completion, log_error
 
@@ -46,13 +46,27 @@ def encode_sse(event_name: str, payload: BaseModel) -> str:
 async def chat(request: Request, payload: ChatRequest) -> StreamingResponse | JSONResponse:
     settings: Settings = request.app.state.settings
     configuration_error = settings.chat_configuration_error()
-    service: GeminiService | Any | None = getattr(request.app.state, "gemini_service", None)
-    if configuration_error or service is None:
+    service: ChatService | Any | None = getattr(request.app.state, "chat_service", None)
+    if configuration_error:
         return JSONResponse(
             status_code=503,
             content=ErrorPayload(
                 code="configuration_error",
-                message=configuration_error or "La configuración de Gemini no está completa.",
+                message=configuration_error,
+                retryable=False,
+            ).model_dump(),
+        )
+    if service is None:
+        unavailable = getattr(request.app.state, "chat_index_error", None)
+        return JSONResponse(
+            status_code=503,
+            content=ErrorPayload(
+                code="corpus_unavailable" if unavailable else "configuration_error",
+                message=(
+                    "El corpus documental no está disponible."
+                    if unavailable
+                    else "La configuración del servicio de conversación no está completa."
+                ),
                 retryable=False,
             ).model_dump(),
         )
@@ -64,7 +78,7 @@ async def chat(request: Request, payload: ChatRequest) -> StreamingResponse | JS
         # turn_number is an unauthenticated MVP UX guardrail, not secure rate limiting.
         iterator: Any = service.stream(
             message=payload.message,
-            previous_interaction_id=payload.previous_interaction_id,
+            history=payload.history,
         )
         terminal = False
         try:
@@ -72,13 +86,13 @@ async def chat(request: Request, payload: ChatRequest) -> StreamingResponse | JS
                 if await request.is_disconnected():
                     log_cancelled(
                         request_id=request_id,
-                        model=settings.gemini_model,
+                        model=settings.chat_model,
                         latency_ms=int((time.monotonic() - started) * 1000),
                     )
                     return
-                if isinstance(event, GeminiTextDelta):
+                if isinstance(event, ChatTextDelta):
                     yield encode_sse("text", TextEventData(delta=event.delta))
-                elif isinstance(event, GeminiCompleted):
+                elif isinstance(event, ChatCompleted):
                     terminal = True
                     citations = list(event.citations)
                     final_text = canonicalize_answer_text(event.final_text, citations)
@@ -97,7 +111,6 @@ async def chat(request: Request, payload: ChatRequest) -> StreamingResponse | JS
                             corpus=corpus,
                         )
                         completion = CompleteEventData(
-                            interaction_id=event.interaction_id,
                             final_text=final_text,
                             citations=citations,
                             answer_status=answer_status,
@@ -114,7 +127,7 @@ async def chat(request: Request, payload: ChatRequest) -> StreamingResponse | JS
                             usage=event.usage.to_payload(),
                         )
                     except Exception as exc:
-                        raise GeminiServiceError(
+                        raise ChatServiceError(
                             code="corpus_unavailable",
                             user_message="El corpus documental no está disponible.",
                             retryable=False,
@@ -122,7 +135,7 @@ async def chat(request: Request, payload: ChatRequest) -> StreamingResponse | JS
                         ) from exc
                     log_completion(
                         request_id,
-                        settings.gemini_model,
+                        settings.chat_model,
                         event.usage,
                         len(event.citations),
                         int((time.monotonic() - started) * 1000),
@@ -131,16 +144,16 @@ async def chat(request: Request, payload: ChatRequest) -> StreamingResponse | JS
                     yield encode_sse("complete", completion)
                     return
             if not terminal:
-                raise GeminiServiceError(
+                raise ChatServiceError(
                     code="provider_error",
                     user_message="No fue posible completar la respuesta.",
                     retryable=True,
                     transient=True,
                 )
-        except GeminiServiceError as exc:
+        except ChatServiceError as exc:
             log_error(
                 request_id=request_id,
-                model=settings.gemini_model,
+                model=settings.chat_model,
                 error_code=exc.code,
                 latency_ms=int((time.monotonic() - started) * 1000),
             )

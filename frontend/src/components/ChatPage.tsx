@@ -5,6 +5,7 @@ import type {
   ChatError,
   Citation,
   EducationalAction,
+  HistoryMessage,
   LearningState,
   SourceCard,
 } from "../types";
@@ -44,7 +45,7 @@ type PendingAction = {
 type Attempt = {
   message: string;
   turnNumber: number;
-  previousInteractionId: string | null;
+  history: HistoryMessage[];
   assistantId: number;
   learningState: LearningState;
 };
@@ -74,9 +75,6 @@ function canRetry(error: ChatError): boolean {
 export default function ChatPage() {
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [previousInteractionId, setPreviousInteractionId] = useState<
-    string | null
-  >(null);
   const [turnCount, setTurnCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ChatError | null>(null);
@@ -163,9 +161,7 @@ export default function ChatPage() {
       await streamChat(
         {
           message: attempt.message,
-          ...(attempt.previousInteractionId
-            ? { previous_interaction_id: attempt.previousInteractionId }
-            : {}),
+          history: attempt.history,
           turn_number: attempt.turnNumber,
           learning_state: attempt.learningState,
         },
@@ -197,7 +193,6 @@ export default function ChatPage() {
                   : message,
               ),
             );
-            setPreviousInteractionId(payload.interaction_id);
             setLearningState(payload.learning_state);
             requestTextareaFocus(requestGeneration);
             setLoading(false);
@@ -254,7 +249,9 @@ export default function ChatPage() {
     const attempt: Attempt = {
       message,
       turnNumber,
-      previousInteractionId,
+      history: messages
+        .filter((item) => item.complete)
+        .map((item) => ({ role: item.role, content: item.text })),
       assistantId,
       learningState: requestLearningState,
     };
@@ -294,7 +291,6 @@ export default function ChatPage() {
     activeController.current = null;
     lastAttempt.current = null;
     setMessages([]);
-    setPreviousInteractionId(null);
     setTurnCount(0);
     setDraft("");
     setPendingAction(null);

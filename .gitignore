@@ -43,6 +43,9 @@ Thumbs.db
 
 # Live manual evaluation output
 evals/results/*.json
+
+# Disposable embedded Chroma indexes
+backend/.chroma/
 # Python
 __pycache__/
 *.py[cod]

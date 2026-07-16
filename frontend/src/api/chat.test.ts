@@ -3,7 +3,6 @@ import { ChatApiError, streamChat } from "./chat";
 import type { ChatError, CompleteEvent } from "../types";
 
 const complete: CompleteEvent = {
-  interaction_id: "interaction-1",
   final_text: "La soberanía reside en los pueblos.",
   citations: [
     {
@@ -123,7 +122,7 @@ describe("streamChat", () => {
     const controller = new AbortController();
 
     await streamChat(
-      { message: "¿Qué defendía?", turn_number: 1 },
+      { message: "¿Qué defendía?", history: [], turn_number: 1 },
       callbacks(),
       controller.signal,
     );
@@ -138,11 +137,12 @@ describe("streamChat", () => {
     });
     expect(JSON.parse(String(init?.body))).toEqual({
       message: "¿Qué defendía?",
+      history: [],
       turn_number: 1,
     });
   });
 
-  test("includes the previous interaction id on follow-up requests", async () => {
+  test("includes completed history on follow-up requests", async () => {
     const fetchMock = vi.fn<typeof fetch>(async () =>
       responseFromChunks([
         new TextEncoder().encode(sse("complete", complete)),
@@ -153,7 +153,10 @@ describe("streamChat", () => {
     await streamChat(
       {
         message: "Amplíe la respuesta.",
-        previous_interaction_id: "interaction-0",
+        history: [
+          { role: "user", content: "Pregunta anterior" },
+          { role: "assistant", content: "Respuesta anterior" },
+        ],
         turn_number: 2,
       },
       callbacks(),
@@ -163,7 +166,10 @@ describe("streamChat", () => {
     const [, init] = fetchMock.mock.calls[0];
     expect(JSON.parse(String(init?.body))).toEqual({
       message: "Amplíe la respuesta.",
-      previous_interaction_id: "interaction-0",
+      history: [
+        { role: "user", content: "Pregunta anterior" },
+        { role: "assistant", content: "Respuesta anterior" },
+      ],
       turn_number: 2,
     });
   });
@@ -180,7 +186,7 @@ describe("streamChat", () => {
     );
 
     const promise = streamChat(
-      { message: "Pregunta", turn_number: 1 },
+      { message: "Pregunta", history: [], turn_number: 1 },
       callbacks(),
       new AbortController().signal,
     );
@@ -200,7 +206,7 @@ describe("streamChat", () => {
     );
 
     const promise = streamChat(
-      { message: "Pregunta", turn_number: 1 },
+      { message: "Pregunta", history: [], turn_number: 1 },
       callbacks(),
       new AbortController().signal,
     );
@@ -229,7 +235,7 @@ describe("streamChat", () => {
     const handlers = callbacks();
 
     await streamChat(
-      { message: "Pregunta", turn_number: 1 },
+      { message: "Pregunta", history: [], turn_number: 1 },
       handlers,
       new AbortController().signal,
     );
@@ -259,7 +265,7 @@ describe("streamChat", () => {
 
     await expect(
       streamChat(
-        { message: "Pregunta", turn_number: 1 },
+        { message: "Pregunta", history: [], turn_number: 1 },
         callbacks(),
         new AbortController().signal,
       ),
@@ -284,7 +290,7 @@ describe("streamChat", () => {
 
     await expect(
       streamChat(
-        { message: "Pregunta", turn_number: 1 },
+        { message: "Pregunta", history: [], turn_number: 1 },
         callbacks(),
         new AbortController().signal,
       ),
@@ -307,7 +313,7 @@ describe("streamChat", () => {
 
     await expect(
       streamChat(
-        { message: "Pregunta", turn_number: 1 },
+        { message: "Pregunta", history: [], turn_number: 1 },
         callbacks(),
         new AbortController().signal,
       ),
@@ -330,7 +336,7 @@ describe("streamChat", () => {
 
     await expect(
       streamChat(
-        { message: "Pregunta", turn_number: 1 },
+        { message: "Pregunta", history: [], turn_number: 1 },
         callbacks(),
         new AbortController().signal,
       ),
@@ -358,7 +364,7 @@ describe("streamChat", () => {
 
     await expect(
       streamChat(
-        { message: "Pregunta", turn_number: 1 },
+        { message: "Pregunta", history: [], turn_number: 1 },
         callbacks(),
         new AbortController().signal,
       ),
@@ -379,7 +385,7 @@ describe("streamChat", () => {
     const handlers = callbacks();
 
     await streamChat(
-      { message: "Pregunta", turn_number: 1 },
+      { message: "Pregunta", history: [], turn_number: 1 },
       handlers,
       new AbortController().signal,
     );
@@ -402,7 +408,7 @@ describe("streamChat", () => {
     const handlers = callbacks();
 
     await streamChat(
-      { message: "Pregunta", turn_number: 1 },
+      { message: "Pregunta", history: [], turn_number: 1 },
       handlers,
       new AbortController().signal,
     );
@@ -427,7 +433,7 @@ describe("streamChat", () => {
       const handlers = callbacks();
 
       await streamChat(
-        { message: "Pregunta", turn_number: 1 },
+        { message: "Pregunta", history: [], turn_number: 1 },
         handlers,
         new AbortController().signal,
       );
@@ -451,7 +457,7 @@ describe("streamChat", () => {
 
     await expect(
       streamChat(
-        { message: "Pregunta", turn_number: 1 },
+        { message: "Pregunta", history: [], turn_number: 1 },
         callbacks(),
         new AbortController().signal,
       ),
@@ -471,7 +477,7 @@ describe("streamChat", () => {
     controller.abort();
 
     const promise = streamChat(
-      { message: "Pregunta", turn_number: 1 },
+      { message: "Pregunta", history: [], turn_number: 1 },
       callbacks(),
       controller.signal,
     );

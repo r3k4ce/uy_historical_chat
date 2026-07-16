@@ -42,12 +42,29 @@ def test_normalize_usage_defaults_components_and_calculates_total() -> None:
     assert partial.total_tokens == 2
 
 
+def test_normalize_usage_reads_langchain_cache_and_reasoning_details() -> None:
+    usage = normalize_usage(
+        {
+            "input_tokens": 100,
+            "output_tokens": 30,
+            "total_tokens": 130,
+            "input_token_details": {"cache_read": 20},
+            "output_token_details": {"reasoning": 8},
+        }
+    )
+
+    assert usage.cached_input_tokens == 20
+    assert usage.thought_tokens == 8
+    assert usage.output_tokens == 22
+    assert usage.total_tokens == 130
+
+
 def test_completion_log_contains_only_safe_metadata(caplog) -> None:
     usage = normalize_usage(SimpleNamespace(total_input_tokens=10))
     with caplog.at_level(logging.INFO, logger="artigas_mvp.usage"):
         log_completion(
             request_id="request-1",
-            model="gemini-3.5-flash",
+            model="openai/gpt-oss-120b",
             usage=usage,
             citation_count=2,
             latency_ms=15,
@@ -58,7 +75,7 @@ def test_completion_log_contains_only_safe_metadata(caplog) -> None:
     assert caplog.records[-1].levelno == logging.WARNING
     assert record == {
         "request_id": "request-1",
-        "model": "gemini-3.5-flash",
+        "model": "openai/gpt-oss-120b",
         "input_tokens": 10,
         "output_tokens": 0,
         "thought_tokens": 0,
@@ -76,7 +93,7 @@ def test_completion_log_contains_only_safe_metadata(caplog) -> None:
 def test_warning_threshold_is_strictly_greater(caplog) -> None:
     usage = normalize_usage(SimpleNamespace(total_input_tokens=1_000_000))
     with caplog.at_level(logging.INFO, logger="artigas_mvp.usage"):
-        log_completion("r", "gemini-3.5-flash", usage, 0, 1, Decimal("1.50"))
+        log_completion("r", "openai/gpt-oss-120b", usage, 0, 1, Decimal("1.50"))
     assert caplog.records[-1].levelno == logging.INFO
 
 
@@ -84,7 +101,7 @@ def test_error_log_uses_same_safe_shape(caplog) -> None:
     with caplog.at_level(logging.INFO, logger="artigas_mvp.usage"):
         log_error(
             request_id="request-2",
-            model="gemini-3.5-flash",
+            model="openai/gpt-oss-120b",
             error_code="provider_timeout",
             latency_ms=20,
         )

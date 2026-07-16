@@ -1,207 +1,250 @@
 # Artigas MVP
 
-Aplicación educativa de una sola página para conversar en español con una simulación histórica de José Artigas. El backend FastAPI usa Gemini Interactions y un único almacén de Gemini File Search; el frontend React conserva una sola conversación temporal en memoria y muestra las fuentes documentales de cada respuesta.
+Aplicación educativa React + FastAPI para conversar en español con una simulación histórica de José Artigas. El backend usa una canalización RAG explícita: Groq `openai/gpt-oss-120b` para chat, Voyage `voyage-4-large` para embeddings y Chroma local persistente con distancia coseno. `openai/gpt-oss-120b` es un Groq model identifier, no una dependencia de la API de OpenAI. El navegador conserva el historial temporal y lo envía completo en cada turno; el backend no guarda conversaciones.
 
-El corpus activo y revisado es `data/artigas-corpus.pdf`: 74 páginas físicas y 15 unidades documentales, `ART-001` a `ART-015`. Sus metadatos, extractos verificados y acciones educativas se mantienen localmente y se validan antes de iniciar la aplicación.
+El corpus activo es `data/artigas-corpus.pdf`: 74 páginas físicas y 15 unidades documentales, `ART-001` a `ART-015`. `data/artigas-pages.json`, `data/source-manifest.yaml` y `data/learning-map.yaml` aportan texto, procedencia, extractos revisados y acciones educativas.
 
-## Experiencia de conversación
+## Experiencia
 
-La interfaz presenta una conversación enfocada, sin historial persistente ni barra lateral. Puede elegir una pregunta inicial o escribir la suya. `Enter` envía el mensaje y `Shift+Enter` agrega una nueva línea; durante una composición con IME, `Enter` no envía prematuramente. El compositor admite hasta 2.000 caracteres y muestra el contador desde los 1.800.
+La interfaz mantiene una conversación en memoria, sin barra lateral ni persistencia. Admite 2.000 caracteres por pregunta y 12 preguntas por conversación; `turn_number` es un guardarraíl de experiencia de usuario, no control de tasa. Conversación y estado educativo desaparecen al recargar o reiniciar.
 
-Cada respuesta terminada puede copiarse con la acción **Copiar**. Las respuestas muestran, cuando corresponde, los estados **Documentado**, **Reconstrucción contemporánea** o **Límite documental**. Cuando hay citas, la bandeja **Fuentes · N** comienza cerrada y consolida tarjetas por documento. Los bloques distinguen **Documento primario** de **Contexto editorial**; los marcadores `[N]` abren la bandeja y enfocan la tarjeta correspondiente.
-
-Las acciones revisadas **Profundizar**, **Contrastar** y **Examinar la fuente** aparecen solamente cuando la evidencia permite seleccionarlas de forma determinística. Las preguntas educativas llenan el compositor sin enviarse automáticamente y pueden editarse. Conversación, estado educativo e identidad de la acción pendiente viven exclusivamente en React y desaparecen al recargar o abrir una conversación nueva.
-
-El retrato usado en la cabecera, la bienvenida y los mensajes es *Artigas en la puerta de la Ciudadela*, de Juan Manuel Blanes, ca. 1884, colección del Museo Histórico Nacional de Uruguay. La imagen fue provista por el museo y se distribuye como reproducción de dominio público; se conserva localmente como WebP optimizado, sin hotlinking. Es una representación artística posterior y no un retrato realizado en vida de Artigas. Consulte la [ficha y condiciones de reutilización en Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Juan_Manuel_Blanes_-_Artigas_en_la_Ciudadela.jpg).
+Las respuestas conservan streaming, citas `[N]`, tarjetas de fuentes, **Documento primario**, **Contexto editorial**, **Reconstrucción contemporánea**, **Límite documental** y las acciones **Profundizar**, **Contrastar** y **Examinar la fuente**. El PDF validado se sirve en `/api/corpus/artigas`; `/api/corpus/artigas#page=26` abre la página física 26 en visores compatibles. Si una fuente no tiene página válida, no se muestra un número de página inventado.
 
 ## Requisitos
 
 - Python 3.12.
 - [`uv`](https://docs.astral.sh/uv/) 0.11.26.
 - Node.js 24 y npm 11.
-- Una clave de Gemini API con acceso a `gemini-3.5-flash`.
-- Un almacén de Gemini File Search que contenga el PDF seleccionado.
+- Una clave Groq con acceso al modelo de chat configurado.
+- Una clave Voyage con acceso a `voyage-4-large`.
 
-## Instalación en PowerShell
+Los scripts de instalación comprueban estas versiones e instalan las dependencias bloqueadas del backend y el frontend. Las claves deben existir antes de comenzar; este documento no cubre la creación de cuentas o credenciales.
+
+## Inicio rápido
+
+### Linux/macOS
 
 Desde la raíz del repositorio:
 
-```powershell
-.\scripts\ensure.ps1
-Copy-Item backend\.env.example backend\.env
-```
-
-Complete solamente `backend/.env`. Está ignorado por Git; no copie claves ni identificadores reales a `backend/.env.example`.
-
-En Linux o macOS:
-
 ```bash
+# 1. Instalar las dependencias bloqueadas.
 ./scripts/ensure.sh
+
+# 2. Crear la configuración local.
 cp backend/.env.example backend/.env
 ```
 
-Los ayudantes validan las versiones, instalan dependencias bloqueadas cuando hace falta, reparan el entorno virtual después de mover el repositorio e instalan el hook de `pre-commit`. `check`, `fix` y `run` los ejecutan automáticamente.
+Edite `backend/.env` y complete como mínimo estas dos líneas:
 
-## Configuración
-
-El backend carga exclusivamente `backend/.env`, sin buscar archivos en la raíz ni en el directorio actual y sin sobrescribir variables ya definidas en el proceso. La salud del servicio funciona aunque falten las dos variables requeridas para conversar.
-
-| Variable | Valor predeterminado | Uso |
-| --- | --- | --- |
-| `GEMINI_API_KEY` | vacío | Secreto requerido por `POST /api/chat` y por la ingestión. |
-| `GEMINI_FILE_SEARCH_STORE` | vacío | Nombre del único almacén, por ejemplo `fileSearchStores/...`. |
-| `GEMINI_MODEL` | `gemini-3.5-flash` | Modelo fijo admitido. |
-| `GEMINI_THINKING_LEVEL` | `low` | Nivel de razonamiento fijo y acotado. |
-| `GEMINI_MAX_OUTPUT_TOKENS` | `4096` | Límite máximo compartido por razonamiento y salida visible. |
-| `GEMINI_TEMPERATURE` | `0.4` | Temperatura de generación. |
-| `MAX_USER_MESSAGE_CHARS` | `2000` | Máximo de caracteres Unicode por pregunta. |
-| `MAX_CONVERSATION_TURNS` | `12` | Máximo de preguntas enviadas en una conversación de la página. |
-| `GEMINI_REQUEST_TIMEOUT_SECONDS` | `45` | Tiempo máximo de una solicitud al proveedor. |
-| `GEMINI_MAX_RETRIES` | `1` | Como máximo, un reintento automático antes de emitir texto. |
-| `COST_WARNING_USD_PER_REQUEST` | `0.05` | Umbral estricto para registrar una advertencia de costo. |
-
-`turn_number` es un guardarraíl de experiencia de usuario del MVP. Como no existe una sesión autenticada en el backend, no es un límite de uso seguro ni sustituye un control de tasa.
-
-## Corpus activo, validación e ingestión
-
-Regenerar el sidecar de texto y validar la estructura en PowerShell:
-
-```powershell
-Push-Location backend
-try {
-    uv run --locked python -m artigas_mvp_backend.corpus prepare
-    uv run --locked python -m artigas_mvp_backend.corpus validate
-    uv run --locked python -m artigas_mvp_backend.corpus validate --production
-}
-finally {
-    Pop-Location
-}
+```dotenv
+GROQ_API_KEY=su-clave-groq
+VOYAGE_API_KEY=su-clave-voyage
 ```
 
-Los equivalentes Linux/macOS son:
+Prepare y valide el corpus, y después cree el índice local. La creación del índice llama a Voyage y puede tener costo:
 
 ```bash
 cd backend
 uv run --locked python -m artigas_mvp_backend.corpus prepare
-uv run --locked python -m artigas_mvp_backend.corpus validate
 uv run --locked python -m artigas_mvp_backend.corpus validate --production
+uv run --locked python -m artigas_mvp_backend.index_corpus
+cd ..
 ```
 
-La preparación extrae el texto nativo a `data/artigas-pages.json`; no usa OCR ni modifica el PDF. La validación de producción exige metadatos y acciones activos con revisión editorial. El procedimiento completo está en [docs/corpus-maintenance.md](docs/corpus-maintenance.md).
-
-Con `GEMINI_API_KEY` configurada, un cambio aprobado del PDF requiere crear un almacén nuevo y cargar el corpus activo:
-
-```powershell
-Push-Location backend
-try {
-    uv run --locked python -m artigas_mvp_backend.ingest ..\data\artigas-corpus.pdf
-}
-finally {
-    Pop-Location
-}
-```
-
-La herramienta imprime una línea `GEMINI_FILE_SEARCH_STORE=fileSearchStores/...`. Copie ese valor a `backend/.env` y reinicie el backend. La ingestión usa fragmentos de 400 tokens con 60 de solapamiento; nunca modifica `.env`, reemplaza un almacén existente ni borra un almacén ante un error.
-
-Equivalente Linux/macOS:
-
-```bash
-pushd backend >/dev/null
-uv run --locked python -m artigas_mvp_backend.ingest ../data/artigas-corpus.pdf
-popd >/dev/null
-```
-
-Para cambiar el corpus:
-
-1. Sustituya el PDF solamente mediante revisión editorial deliberada.
-2. Regenere el sidecar y revise manualmente manifiesto, extractos y mapa educativo.
-3. Ejecute `corpus validate --production`.
-4. Ingiera el PDF en un almacén File Search nuevo y actualice solo `backend/.env`.
-5. Ejecute, revise, compare y promueva la evaluación completa antes de retirar el almacén anterior.
-
-Gemini no garantiza una página para todas las anotaciones de PDF. Cuando falta, la tarjeta conserva la fuente pero no se muestra un número de página inventado. El PDF validado se sirve en `/api/corpus/artigas`; por ejemplo, `/api/corpus/artigas#page=26` abre la página física 26 en visores compatibles.
-
-## Ejecución local
-
-En Linux o macOS, inicie frontend y backend juntos desde la raíz. Presione `Ctrl+C` para detener ambos:
+Inicie backend y frontend juntos:
 
 ```bash
 ./scripts/run.sh
 ```
 
-Inicie el backend en una terminal PowerShell:
+Abra <http://127.0.0.1:5173>. Para detener ambos servidores, presione `Ctrl+C` en la terminal que ejecuta `run.sh`.
+
+### Windows PowerShell
+
+Desde la raíz del repositorio:
+
+```powershell
+# 1. Instalar las dependencias bloqueadas.
+.\scripts\ensure.ps1
+
+# 2. Crear la configuración local.
+Copy-Item backend\.env.example backend\.env
+```
+
+Edite `backend\.env` y complete como mínimo:
+
+```dotenv
+GROQ_API_KEY=su-clave-groq
+VOYAGE_API_KEY=su-clave-voyage
+```
+
+Prepare y valide el corpus, y cree el índice local:
 
 ```powershell
 Push-Location backend
-uv run uvicorn artigas_mvp_backend.main:app --reload
+uv run --locked python -m artigas_mvp_backend.corpus prepare
+uv run --locked python -m artigas_mvp_backend.corpus validate --production
+uv run --locked python -m artigas_mvp_backend.index_corpus
+Pop-Location
 ```
 
-En otra terminal:
+Windows no tiene un `run.ps1` combinado. Inicie el backend en una terminal PowerShell:
+
+```powershell
+Push-Location backend
+uv run --locked python -m uvicorn artigas_mvp_backend.main:app --reload
+```
+
+En una segunda terminal PowerShell, desde la raíz:
 
 ```powershell
 Push-Location frontend
-npm run dev
+npm.cmd run dev
 ```
 
-Vite reenvía `/api` al backend en `127.0.0.1:8000`. Compruebe la salud en `GET /api/health`.
+Abra <http://127.0.0.1:5173>. Detenga cada servidor con `Ctrl+C` en su terminal y ejecute `Pop-Location` si desea regresar a la raíz.
 
-En Linux o macOS, use los mismos comandos dentro de `backend/` y `frontend/`, respectivamente.
+### Comprobar que funciona
 
-## Verificación automatizada
+Con los servidores activos:
 
-PowerShell, desde la raíz:
+- La aplicación web debe abrir en <http://127.0.0.1:5173>.
+- La salud del backend debe responder en <http://127.0.0.1:8000/api/health>.
+- Escriba una pregunta histórica; la respuesta debe transmitirse progresivamente y mostrar fuentes cuando corresponda.
+
+En Linux/macOS puede comprobar la salud desde otra terminal:
+
+```bash
+curl http://127.0.0.1:8000/api/health
+```
+
+En PowerShell:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/api/health
+```
+
+`backend/.env` y `backend/.chroma/` están ignorados por Git. No escriba claves reales en archivos versionados.
+
+## Configuración
+
+El backend carga exclusivamente `backend/.env` y preserva variables exportadas. Salud y PDF funcionan sin credenciales o sin índice; `POST /api/chat` informa `configuration_error` si faltan claves y `corpus_unavailable` si Chroma falta o está desactualizado.
+
+| Variable | Predeterminado | Uso |
+| --- | --- | --- |
+| `CHAT_MODEL` | `openai/gpt-oss-120b` | Modelo de chat. |
+| `GROQ_API_KEY` | vacío | Chat Groq. |
+| `VOYAGE_API_KEY` | vacío | Embeddings Voyage. |
+| `EMBEDDING_MODEL` | `voyage-4-large` | Identidad del índice; cambiarla exige reconstruirlo. |
+| `EMBEDDING_DIMENSIONS` | `1024` | Dimensiones del vector: `256`, `512`, `1024` o `2048`; cambiarlo exige reconstruir. |
+| `CHROMA_PERSIST_DIRECTORY` | `backend/.chroma/artigas` | Índice local descartable. |
+| `CHAT_TEMPERATURE` | `0.6` | Variación de la respuesta; rango práctico recomendado de `0.4` a `0.8`. |
+| `CHAT_REASONING_EFFORT` | `medium` | Esfuerzo de razonamiento: `low`, `medium` o `high`. |
+| `CHAT_MAX_OUTPUT_TOKENS` | `4096` | Máximo de salida. |
+| `CHAT_REQUEST_TIMEOUT_SECONDS` | `45` | Tiempo máximo del proveedor. |
+| `CHAT_MAX_RETRIES` | `1` | Reintentos del cliente LangChain. |
+| `CHAT_INPUT_PRICE_USD_PER_MILLION` | precio Groq predeterminado | Obligatorio para otro modelo de chat. |
+| `CHAT_OUTPUT_PRICE_USD_PER_MILLION` | precio Groq predeterminado | Obligatorio para otro modelo de chat. |
+| `MAX_USER_MESSAGE_CHARS` | `2000` | Límite de pregunta. |
+| `MAX_CONVERSATION_TURNS` | `12` | Límite de preguntas. |
+| `COST_WARNING_USD_PER_REQUEST` | `0.05` | Umbral de advertencia. |
+
+`CHAT_TEMPERATURE` y `CHAT_REASONING_EFFORT` son ajustes independientes y se cargan al iniciar el proceso. Después de cambiarlos en `backend/.env`, reinicie el backend. El punto de partida recomendado es `0.6` con esfuerzo `medium`; la interfaz y la API pública no exponen controles de generación.
+
+## Preparar el corpus y mantener el índice
+
+Valide primero los artefactos revisados:
+
+```powershell
+Push-Location backend
+uv run --locked python -m artigas_mvp_backend.corpus prepare
+uv run --locked python -m artigas_mvp_backend.corpus validate --production
+Pop-Location
+```
+
+```bash
+cd backend
+uv run --locked python -m artigas_mvp_backend.corpus prepare
+uv run --locked python -m artigas_mvp_backend.corpus validate --production
+```
+
+Con `VOYAGE_API_KEY` configurada, construya el índice sin llamar al modelo de chat:
+
+```powershell
+Push-Location backend
+uv run --locked python -m artigas_mvp_backend.index_corpus
+Pop-Location
+```
+
+```bash
+cd backend
+uv run --locked python -m artigas_mvp_backend.index_corpus
+```
+
+El índice usa Voyage `voyage-4-large`, vectores float de 1.024 dimensiones, distancia coseno, la colección `artigas-corpus-v1`, fragmentos de 400 tokens con 60 de solapamiento y metadatos estables de página, documento, sección, corpus y esquema. Para reemplazar un índice existente o incompatible use `--replace`; la construcción ocurre en un directorio temporal y el intercambio conserva el índice anterior si falla. El contenido generado bajo `backend/.chroma/` nunca se versiona.
+
+Después de cambiar el PDF, el modelo de embeddings, sus dimensiones o los parámetros del índice, vuelva a validar el corpus y reconstruya el índice:
+
+```powershell
+Push-Location backend
+uv run --locked python -m artigas_mvp_backend.corpus validate --production
+uv run --locked python -m artigas_mvp_backend.index_corpus --replace
+Pop-Location
+```
+
+```bash
+cd backend
+uv run --locked python -m artigas_mvp_backend.corpus validate --production
+uv run --locked python -m artigas_mvp_backend.index_corpus --replace
+```
+
+`--replace` construye y valida un índice temporal antes de intercambiarlo. Si Voyage o la validación fallan, el índice anterior permanece disponible.
+
+El procedimiento editorial completo está en [docs/corpus-maintenance.md](docs/corpus-maintenance.md).
+
+## Usar la aplicación
+
+La página mantiene una única conversación temporal. Puede escribir una pregunta o elegir una acción educativa sugerida. El historial explícito se envía al backend en cada turno, pero no se persiste: desaparece al recargar la página o iniciar una conversación nueva.
+
+Artigas narra siempre en primera persona, trata al visitante de `usted` y mantiene español claro, lenguaje cívico medido, firmeza contenida y una cadencia oriental sutil. La voz evita teatralidad, vida interior inventada, consignas, jerga moderna, arcaísmos falsos y prosa de asistente genérico; varía la apertura, adapta la extensión y no expone la recuperación documental en el texto visible. Solo ante un referente realmente ausente puede hacer una aclaración breve.
+
+El backend envía en una sola llamada un contrato universal `system`, una tarjeta de voz `developer` y las reglas/evidencia del turno en otro mensaje `developer`. La tarjeta nunca cuenta como evidencia histórica. El estándar obligatorio para Artigas y futuras figuras, con sus cuatro ejemplos y la prueba manual de seis situaciones, está en [docs/character-authoring.md](docs/character-authoring.md).
+
+Las respuestas históricas recuperan evidencia del índice Chroma y pueden mostrar citas, páginas y tarjetas de fuente. El enlace `/api/corpus/artigas#page=26` abre la página física 26 del PDF en visores compatibles. Los saludos puramente conversacionales pueden no incluir citas.
+
+Los límites predeterminados son 2.000 caracteres por pregunta, 12 preguntas por conversación y 4.096 tokens de salida. `turn_number` es un guardarraíl de experiencia de usuario, no un control de tasa.
+
+## Verificación del repositorio
+
+Ejecute todos los tests, comprobaciones de tipos, lint y builds desde la raíz:
+
+Linux/macOS:
+
+```bash
+./scripts/check.sh
+```
+
+PowerShell:
 
 ```powershell
 .\scripts\check.ps1
 ```
 
-El script ejecuta formato Ruff, Ruff, Pyright y pytest en el backend; después ejecuta Vitest, TypeScript, ESLint y el build de Vite. `scripts/fix.ps1` aplica las correcciones y el formato Ruff antes de repetir las comprobaciones:
+Las pruebas usan modelos y embeddings falsos: no llaman a Groq/Voyage ni construyen el índice real. Los scripts de comprobación sí pueden sincronizar dependencias locales cuando el entorno no coincide con los lockfiles.
 
-```powershell
-.\scripts\fix.ps1
-```
+## Solución de problemas
 
-En Linux o macOS:
+- **`configuration_error` al enviar una pregunta:** confirme que `backend/.env` existe, que `GROQ_API_KEY` y `VOYAGE_API_KEY` no están vacías, y reinicie el backend después de editar el archivo.
+- **`corpus_unavailable`:** el índice falta o no coincide con el corpus/configuración actual. Valide el corpus y ejecute `artigas_mvp_backend.index_corpus --replace` desde `backend/`.
+- **El constructor del índice informa que ya existe:** use `--replace` solamente si desea reconstruir deliberadamente el índice descartable.
+- **Una versión de herramienta es rechazada:** instale Python 3.12, `uv` 0.11.26, Node.js 24 y npm 11; después vuelva a ejecutar `ensure.sh` o `ensure.ps1`.
+- **El frontend abre pero no alcanza el backend:** compruebe <http://127.0.0.1:8000/api/health>. Vite reenvía `/api` a `127.0.0.1:8000` durante el desarrollo.
+- **El puerto 5173 u 8000 está ocupado:** detenga el proceso anterior antes de reiniciar. La configuración incluida asume esos puertos.
+- **Cambió `CHAT_MODEL`:** configure también `CHAT_INPUT_PRICE_USD_PER_MILLION` y `CHAT_OUTPUT_PRICE_USD_PER_MILLION`; los precios son obligatorios para modelos de chat no predeterminados.
 
-```bash
-./scripts/check.sh
-./scripts/fix.sh
-```
+## Evaluación opcional
 
-El hook de `pre-commit` ejecuta esta misma verificación completa antes de cada commit. En CI y dentro del propio hook se omite únicamente la reinstalación recursiva del hook; el bootstrap de dependencias se conserva.
-
-Pruebas enfocadas:
-
-```powershell
-Push-Location backend
-uv run pytest tests/test_chat.py -q
-Pop-Location
-
-Push-Location frontend
-npm run test -- src/api/chat.test.ts
-npm run typecheck
-npm run lint
-npm run build
-Pop-Location
-```
-
-Las pruebas estándar y CI usan clientes falsos y no realizan llamadas a Gemini. El flujo de GitHub Actions no necesita credenciales del proveedor.
-
-## Evaluación y puerta formal de calidad
-
-El conjunto `evals/artigas-cases.yaml` contiene 60 casos: 42 live de un turno, 16 live de varios turnos y dos fixtures. No se usa un segundo modelo ni un juez automático. Los chequeos determinísticos verifican contratos acotados y una persona revisora puntúa la rúbrica de 1 a 4.
-
-```powershell
-Push-Location backend
-uv run --locked python -m artigas_mvp_backend.evaluate run --all --confirm-cost
-$Result = (Get-ChildItem ..\evals\results\*.json | Sort-Object LastWriteTime | Select-Object -Last 1).FullName
-uv run --locked python -m artigas_mvp_backend.evaluate review $Result
-uv run --locked python -m artigas_mvp_backend.evaluate compare $Result
-uv run --locked python -m artigas_mvp_backend.evaluate promote $Result
-Pop-Location
-```
-
-Linux/macOS:
+La matriz mantiene 60 casos y no usa un juez automático. Las ejecuciones fixture no requieren credenciales. Una ejecución live llama a Groq y Voyage, requiere un índice vigente, puede generar costos y exige `--confirm-cost`. Además del promedio general de 3,25 por categoría, los casos de personalidad requieren al menos 3/4 por caso en fidelidad del personaje y presencia conversacional, con promedio combinado mínimo de 3,5:
 
 ```bash
 cd backend
@@ -212,16 +255,12 @@ uv run --locked python -m artigas_mvp_backend.evaluate compare "$result"
 uv run --locked python -m artigas_mvp_backend.evaluate promote "$result"
 ```
 
-Sin `--confirm-cost` no se crea el cliente ni se realiza una llamada. Los resultados se escriben atómicamente en `evals/results/` y están ignorados por Git. `review` es reanudable, `compare` no modifica datos y `promote` exige una revisión completa, una puerta aprobada y confirmación por hash antes de escribir `evals/baseline.json`.
-
-Esta rama no incluye una línea base promovida: el acceso facturable al proveedor fue retirado antes de obtener una ejecución live completa y limpia. La verificación offline no sustituye esa evidencia ni se presenta como una aprobación de la puerta live. No ejecute la matriz live sin una autorización de costo nueva y explícita.
+Los resultados registran proveedor, modelos, hash del corpus, colección/esquema, MMR `k=6` y `fetch_k=20`, fragmentación, precios, temperatura, esfuerzo de razonamiento y generación, sin claves ni contenido conversacional adicional. Esta migración no ejecuta evaluación live ni promueve una línea base.
 
 ## Límites, costos y privacidad
 
-- El producto admite un personaje, un modelo, un almacén File Search, un PDF activo y una conversación por página.
-- Cada pregunta admite 2.000 caracteres; cada conversación admite 12 preguntas; cada interacción admite 4.096 tokens compartidos por razonamiento y salida visible, con nivel de razonamiento `low`.
-- El backend desactiva los reintentos del transporte y permite un único reintento propio. Además del error transitorio previo al texto, reutiliza ese mismo presupuesto para reconciliar una finalización terminal inválida o un seguimiento histórico sin citas; nunca muestra dos borradores y suma el uso de ambos intentos.
-- Los registros estructurados incluyen identificador de solicitud, modelo, tokens de entrada, salida visible y pensamiento, total, costo estimado, cantidad de citas, latencia y código estable de error. No registran preguntas, respuestas, claves ni identificadores del almacén.
-- La retención predeterminada del proveedor administra las interacciones de Gemini. La aplicación no configura una retención personalizada.
-- Las conversaciones viven únicamente en el estado React: desaparecen al recargar o cerrar la página y no se guardan en navegador, base de datos ni registros de conversación del backend.
-- La aplicación no ofrece autenticación, persistencia, búsqueda web, recuperación personalizada ni limitación de tasa de producción.
+- Chroma está embebido y es apropiado para esta instancia única del MVP.
+- Cada turno recupera seis fragmentos con MMR; el mensaje actual y el último par completado forman la consulta, pero respuestas previas no son evidencia.
+- El backend registra metadatos seguros de uso, costo y error; no registra preguntas, respuestas ni claves.
+- El navegador suministra historial explícito y el backend permanece sin estado conversacional. No hay retención de interacciones del proveedor asumida por la aplicación.
+- No hay autenticación, persistencia de conversaciones, búsqueda web ni limitación de tasa de producción.

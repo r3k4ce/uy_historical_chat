@@ -1,102 +1,89 @@
 from __future__ import annotations
 
-import logging
-from collections.abc import Iterable
-from dataclasses import dataclass
-from typing import Any
+import re
+
+from langchain_core.documents import Document
 
 from artigas_mvp_backend.models import Citation
 
-logger = logging.getLogger(__name__)
-
 
 class CitationProcessingError(Exception):
-    """Raised when provider citation offsets cannot be safely normalized."""
+    """Raised when generated citation data cannot be safely normalized."""
 
 
-@dataclass(frozen=True)
-class RawFileCitation:
-    source_identity: str | None
-    file_name: str | None
-    page_number: int | None
-    byte_start: int
-    byte_end: int
+_MARKER = re.compile(r"^\[\[S([1-9]\d*)\]\]")
 
 
-def _value(annotation: object, *names: str) -> Any:
-    for name in names:
-        if isinstance(annotation, dict) and name in annotation:
-            return annotation[name]
-        value = getattr(annotation, name, None)
-        if value is not None:
-            return value
-    return None
+def _utf16_length(value: str) -> int:
+    return len(value.encode("utf-16-le")) // 2
 
 
-def _to_raw(annotation: object) -> RawFileCitation | None:
-    if isinstance(annotation, RawFileCitation):
-        return annotation
-    kind = _value(annotation, "type", "annotation_type")
-    if kind not in {"file_citation", "file_search_citation"}:
-        logger.debug("Ignoring non-file citation annotation type")
-        return None
-    start = _value(annotation, "start_index", "start", "start_offset")
-    end = _value(annotation, "end_index", "end", "end_offset")
-    if not isinstance(start, int) or not isinstance(end, int):
-        raise CitationProcessingError("Citation offsets are missing or invalid")
-    source = _value(annotation, "source_id", "file_id", "source", "uri")
-    name = _value(annotation, "file_name", "filename", "title")
-    page = _value(annotation, "page_number", "page")
-    if page is not None and not isinstance(page, int):
-        page = None
-    return RawFileCitation(
-        str(source) if source else None,
-        str(name) if name is not None else None,
-        page,
-        start,
-        end,
-    )
+def _claim_span(text: str) -> tuple[int, int]:
+    end = len(text.rstrip())
+    boundary = max((text.rfind(character, 0, end) for character in ".?!\n"), default=-1)
+    start = boundary + 1
+    while start < end and text[start].isspace():
+        start += 1
+    return start, end
 
 
-def normalize_citations(final_text: str, annotations: Iterable[object]) -> tuple[Citation, ...]:
-    indexed: list[tuple[RawFileCitation, int]] = []
-    for provider_order, annotation in enumerate(annotations):
-        raw = _to_raw(annotation)
-        if raw is not None:
-            indexed.append((raw, provider_order))
-    indexed.sort(key=lambda item: (item[0].byte_start, item[0].byte_end, item[1]))
+class CitationMarkerParser:
+    """Strip model citation markers while producing deterministic citation spans."""
 
-    final_bytes = final_text.encode("utf-8")
-    seen: set[tuple[str, int | None, int, int]] = set()
-    result: list[Citation] = []
-    for raw, _ in indexed:
-        if not 0 <= raw.byte_start <= raw.byte_end <= len(final_bytes):
-            raise CitationProcessingError("Citation offsets are outside the response")
-        normalized_name = (raw.file_name or "").strip()
-        identity = raw.source_identity or normalized_name
-        physical_page = (
-            raw.page_number + 1 if raw.page_number is not None and raw.page_number >= 0 else None
-        )
-        key = (identity, physical_page, raw.byte_start, raw.byte_end)
-        if key in seen:
-            continue
-        seen.add(key)
-        try:
-            start_text = final_bytes[: raw.byte_start].decode("utf-8", errors="strict")
-            end_text = final_bytes[: raw.byte_end].decode("utf-8", errors="strict")
-            supported_text = final_bytes[raw.byte_start : raw.byte_end].decode(
-                "utf-8", errors="strict"
-            )
-        except UnicodeDecodeError as exc:
-            raise CitationProcessingError("Citation offset splits a UTF-8 character") from exc
-        result.append(
+    def __init__(self, sources: dict[str, Document]) -> None:
+        self.sources = sources
+        self._pending = ""
+        self._text = ""
+        self._citations: list[Citation] = []
+
+    def feed(self, delta: str) -> str:
+        self._pending += delta
+        emitted: list[str] = []
+        while self._pending:
+            marker = _MARKER.match(self._pending)
+            if marker:
+                self._add_citation(f"S{marker.group(1)}")
+                self._pending = self._pending[marker.end() :]
+                continue
+            if self._pending.startswith("[["):
+                closing = self._pending.find("]]", 2)
+                if closing < 0:
+                    break
+                self._pending = self._pending[closing + 2 :]
+                continue
+            if self._pending == "[":
+                break
+            character = self._pending[0]
+            self._pending = self._pending[1:]
+            self._text += character
+            emitted.append(character)
+        return "".join(emitted)
+
+    def _add_citation(self, alias: str) -> None:
+        source = self.sources.get(alias)
+        if source is None:
+            return
+        start, end = _claim_span(self._text)
+        if start == end:
+            return
+        title = str(source.metadata.get("title") or "Fuente documental")
+        page_value = source.metadata.get("page")
+        page = page_value if isinstance(page_value, int) else None
+        self._citations.append(
             Citation(
-                number=len(result) + 1,
-                title=normalized_name or "Fuente documental",
-                page=physical_page,
-                supported_text=supported_text,
-                start_index=len(start_text.encode("utf-16-le")) // 2,
-                end_index=len(end_text.encode("utf-16-le")) // 2,
+                number=len(self._citations) + 1,
+                title=title,
+                page=page,
+                supported_text=self._text[start:end],
+                start_index=_utf16_length(self._text[:start]),
+                end_index=_utf16_length(self._text[:end]),
             )
         )
-    return tuple(result)
+
+    def finish(self) -> tuple[str, tuple[Citation, ...], str]:
+        trailing = ""
+        if self._pending and not self._pending.startswith("[["):
+            trailing = self._pending
+            self._text += trailing
+        self._pending = ""
+        return self._text, tuple(self._citations), trailing

@@ -12,6 +12,7 @@ RubricCategory = Literal[
     "source_interpretation",
     "educational_usefulness",
     "character_fidelity",
+    "conversational_presence",
 ]
 EvaluationActionType = Literal["deepen", "compare", "source"]
 
@@ -101,7 +102,8 @@ class HumanRubric(BaseModel):
             "source_interpretation",
             "educational_usefulness",
             "character_fidelity",
+            "conversational_presence",
         }
         if set(self.categories) != required:
-            raise ValueError("rubric must define all four review categories")
+            raise ValueError("rubric must define all five review categories")
         return self

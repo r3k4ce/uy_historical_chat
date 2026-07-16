@@ -10,9 +10,14 @@ export type ErrorCode =
 
 export type ChatRequest = {
   message: string;
-  previous_interaction_id?: string;
+  history: HistoryMessage[];
   turn_number: number;
   learning_state?: LearningState;
+};
+
+export type HistoryMessage = {
+  role: "user" | "assistant";
+  content: string;
 };
 
 export type Citation = {
@@ -145,7 +150,6 @@ export type TextEvent = {
 };
 
 export type CompleteEvent = {
-  interaction_id: string;
   final_text: string;
   citations: Citation[];
   answer_status: AnswerStatus;

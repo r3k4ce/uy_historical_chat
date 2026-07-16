@@ -12,11 +12,51 @@ from artigas_mvp_backend.models import (
 )
 
 
+def test_chat_request_accepts_completed_alternating_history() -> None:
+    request = ChatRequest.model_validate(
+        {
+            "message": "¿Y después?",
+            "history": [
+                {"role": "user", "content": "¿Qué ocurrió?"},
+                {"role": "assistant", "content": "Ocurrió esto."},
+            ],
+            "turn_number": 2,
+        }
+    )
+
+    assert [message.role for message in request.history] == ["user", "assistant"]
+
+
+@pytest.mark.parametrize(
+    ("history", "turn_number"),
+    [
+        ([], 2),
+        ([{"role": "assistant", "content": "Respuesta"}], 1),
+        ([{"role": "user", "content": "Pregunta"}], 2),
+        (
+            [
+                {"role": "user", "content": "Uno"},
+                {"role": "assistant", "content": "Respuesta"},
+                {"role": "assistant", "content": "Otra"},
+            ],
+            2,
+        ),
+    ],
+)
+def test_chat_request_rejects_incomplete_or_mismatched_history(
+    history: list[dict[str, str]], turn_number: int
+) -> None:
+    with pytest.raises(ValidationError):
+        ChatRequest.model_validate(
+            {"message": "Pregunta", "history": history, "turn_number": turn_number}
+        )
+
+
 def test_chat_request_trims_outer_whitespace() -> None:
     request = ChatRequest(message="  ¿Qué defendía?  ", turn_number=1)
 
     assert request.message == "¿Qué defendía?"
-    assert request.previous_interaction_id is None
+    assert request.history == []
 
 
 @pytest.mark.parametrize("message", ["", " \n\t "])
@@ -41,7 +81,20 @@ def test_chat_request_rejects_invalid_turns(turn_number: int) -> None:
 
 
 def test_chat_request_accepts_turn_twelve() -> None:
-    assert ChatRequest(message="Pregunta", turn_number=12).turn_number == 12
+    history = [
+        item
+        for number in range(11)
+        for item in (
+            {"role": "user", "content": f"Pregunta {number}"},
+            {"role": "assistant", "content": f"Respuesta {number}"},
+        )
+    ]
+    assert (
+        ChatRequest.model_validate(
+            {"message": "Pregunta", "history": history, "turn_number": 12}
+        ).turn_number
+        == 12
+    )
 
 
 def test_error_payload_has_stable_public_schema() -> None:
@@ -60,7 +113,6 @@ def test_error_payload_has_stable_public_schema() -> None:
 
 def test_complete_payload_has_stable_public_schema() -> None:
     payload = CompleteEventData(
-        interaction_id="interaction-1",
         final_text="Defendí la soberanía.",
         citations=[
             Citation(
@@ -95,7 +147,6 @@ def test_complete_payload_has_stable_public_schema() -> None:
     )
 
     assert payload.model_dump(mode="json") == {
-        "interaction_id": "interaction-1",
         "final_text": "Defendí la soberanía.",
         "citations": [
             {

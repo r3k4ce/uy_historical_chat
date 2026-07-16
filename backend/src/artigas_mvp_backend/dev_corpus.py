@@ -1,4 +1,4 @@
-"""Generate the deterministic synthetic PDF used for local File Search development."""
+"""Generate the deterministic synthetic PDF used for local retrieval development."""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ _PAGES: Final = (
             "evidencia suficiente para una publicación educativa.",
             "ADVERTENCIA DE REEMPLAZO: antes de cualquier lanzamiento publico, sustituya este "
             "archivo por un corpus seleccionado y revisado por especialistas, vuelva a crear el "
-            "almacén de File Search y valide cada respuesta.",
+            "índice de recuperación y valide cada respuesta.",
         ),
     ),
     (
@@ -124,7 +124,7 @@ def generate_dev_corpus(output_path: Path) -> None:
     canvas.setAuthor("Artigas MVP")
     canvas.setCreator("artigas_mvp_backend.dev_corpus")
     canvas.setTitle("Corpus sintético de desarrollo de Artigas MVP")
-    canvas.setSubject("Fixture sintético para pruebas de File Search")
+    canvas.setSubject("Fixture sintético para pruebas de recuperación documental")
 
     width, height = A4
     for title, paragraphs in _PAGES:

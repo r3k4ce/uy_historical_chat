@@ -16,11 +16,11 @@ import artigas_mvp_backend.main as main_module
 from artigas_mvp_backend.api.chat import chat
 from artigas_mvp_backend.config import Settings
 from artigas_mvp_backend.main import _validation_payload, create_app
-from artigas_mvp_backend.models import ChatRequest, Citation, LearningState
-from artigas_mvp_backend.services.gemini import (
-    GeminiCompleted,
-    GeminiServiceError,
-    GeminiTextDelta,
+from artigas_mvp_backend.models import ChatRequest, Citation, HistoryMessage, LearningState
+from artigas_mvp_backend.services.chat import (
+    ChatCompleted,
+    ChatServiceError,
+    ChatTextDelta,
 )
 from artigas_mvp_backend.services.usage import NormalizedUsage
 
@@ -35,12 +35,12 @@ def anyio_backend() -> str:
 class FakeService:
     def __init__(self, events: list[object]) -> None:
         self.events = events
-        self.calls: list[tuple[str, str | None]] = []
+        self.calls: list[tuple[str, list[HistoryMessage]]] = []
 
     async def stream(
-        self, *, message: str, previous_interaction_id: str | None
-    ) -> AsyncIterator[GeminiTextDelta | GeminiCompleted]:
-        self.calls.append((message, previous_interaction_id))
+        self, *, message: str, history: list[HistoryMessage]
+    ) -> AsyncIterator[ChatTextDelta | ChatCompleted]:
+        self.calls.append((message, history))
         for event in self.events:
             if isinstance(event, Exception):
                 raise event
@@ -49,8 +49,8 @@ class FakeService:
 
 def configured_settings(**updates: object) -> Settings:
     values: dict[str, object] = {
-        "gemini_api_key": SecretStr("test-key"),
-        "gemini_file_search_store": "fileSearchStores/test",
+        "groq_api_key": SecretStr("test-key"),
+        "voyage_api_key": SecretStr("embedding-key"),
     }
     values.update(updates)
     return Settings.model_validate(values)
@@ -72,7 +72,8 @@ class FakeRequest:
         self.app = SimpleNamespace(
             state=SimpleNamespace(
                 settings=settings,
-                gemini_service=service,
+                chat_service=service,
+                chat_index_error=None,
                 corpus_service=corpus_service or empty_corpus,
             )
         )
@@ -102,11 +103,11 @@ async def test_missing_runtime_configuration_is_json_before_stream() -> None:
     assert response.status_code == 503
     assert json.loads(bytes(response.body)) == {
         "code": "configuration_error",
-        "message": "La configuración de Gemini no está completa.",
+        "message": "La configuración del servicio de conversación no está completa.",
         "retryable": False,
     }
 
-    missing_store = Settings(gemini_api_key=SecretStr("test-key"))
+    missing_store = Settings(groq_api_key=SecretStr("test-key"))
     response = await chat(
         cast(Request, FakeRequest(missing_store)), ChatRequest(message="Hola", turn_number=1)
     )
@@ -162,9 +163,8 @@ def test_validation_payload_has_exact_public_mapping(
 async def test_stream_frames_text_and_canonical_completion() -> None:
     service = FakeService(
         [
-            GeminiTextDelta("Defendí "),
-            GeminiCompleted(
-                interaction_id="interaction-1",
+            ChatTextDelta("Defendí "),
+            ChatCompleted(
                 final_text="Defendí la federación.",
                 citations=(
                     Citation(
@@ -184,8 +184,11 @@ async def test_stream_frames_text_and_canonical_completion() -> None:
         cast(Request, FakeRequest(configured_settings(), service)),
         ChatRequest(
             message="  Explique la federación.  ",
-            previous_interaction_id="previous-1",
-            turn_number=12,
+            history=[
+                HistoryMessage(role="user", content="Pregunta anterior"),
+                HistoryMessage(role="assistant", content="Respuesta anterior"),
+            ],
+            turn_number=2,
         ),
     )
     assert response.status_code == 200
@@ -195,14 +198,15 @@ async def test_stream_frames_text_and_canonical_completion() -> None:
     body = await response_text(response)
     assert 'event: text\ndata: {"delta":"Defendí "}\n\n' in body
     assert "event: complete\n" in body
-    assert '"interaction_id":"interaction-1"' in body
+    assert '"interaction_id"' not in body
     assert '"final_text":"Defendí la federación."' in body
     assert '"answer_status":"documented"' in body
     assert '"sources":[{"id":"unmapped-1"' in body
     assert '"supported_text":"federación"' in body
     assert '"educational_actions":[]' in body
     assert '"learning_state":{"shown_action_ids":[]' in body
-    assert service.calls == [("Explique la federación.", "previous-1")]
+    assert service.calls[0][0] == "Explique la federación."
+    assert [item.role for item in service.calls[0][1]] == ["user", "assistant"]
 
 
 @pytest.mark.anyio
@@ -214,8 +218,7 @@ async def test_canonical_completion_enriches_mapped_corpus_evidence(tmp_path) ->
     corpus = CorpusService.load(make_corpus_paths(tmp_path))
     service = FakeService(
         [
-            GeminiCompleted(
-                interaction_id="interaction-mapped",
+            ChatCompleted(
                 final_text="Defendí la autonomía provincial.",
                 citations=(
                     Citation(
@@ -248,7 +251,7 @@ async def test_canonical_completion_enriches_mapped_corpus_evidence(tmp_path) ->
     assert '"type":"deepen","label":"Profundizar","action_id":"active-action"' in body
     assert '"type":"source","label":"Examinar la fuente"' in body
     assert '"shown_action_ids":["active-action"]' in body
-    assert service.calls == [("Explique la autonomía.", None)]
+    assert service.calls == [("Explique la autonomía.", [])]
 
 
 @pytest.mark.anyio
@@ -260,8 +263,7 @@ async def test_completion_advances_and_returns_normalized_learning_state(tmp_pat
     corpus = CorpusService.load(make_corpus_paths(tmp_path))
     service = FakeService(
         [
-            GeminiCompleted(
-                interaction_id="interaction-learning",
+            ChatCompleted(
                 final_text="Defendí la autonomía provincial.",
                 citations=(
                     Citation(
@@ -282,6 +284,10 @@ async def test_completion_advances_and_returns_normalized_learning_state(tmp_pat
         ChatRequest(
             message="Continúe.",
             turn_number=2,
+            history=[
+                HistoryMessage(role="user", content="Pregunta anterior"),
+                HistoryMessage(role="assistant", content="Respuesta anterior"),
+            ],
             learning_state=LearningState(
                 shown_action_ids=["active-action", "stale"],
                 submitted_action_id="active-action",
@@ -306,8 +312,7 @@ async def test_local_enrichment_failure_is_a_safe_terminal_sse(monkeypatch) -> N
 
     service = FakeService(
         [
-            GeminiCompleted(
-                interaction_id="interaction-broken",
+            ChatCompleted(
                 final_text="Respuesta canónica.",
                 citations=(
                     Citation(
@@ -340,14 +345,14 @@ async def test_local_enrichment_failure_is_a_safe_terminal_sse(monkeypatch) -> N
     assert '"code":"corpus_unavailable"' in body
     assert "sensitive local path" not in body
     assert logged[0]["error_code"] == "corpus_unavailable"
-    assert service.calls == [("Pregunta", None)]
+    assert service.calls == [("Pregunta", [])]
 
 
 @pytest.mark.anyio
 async def test_service_error_is_safe_terminal_sse() -> None:
     service = FakeService(
         [
-            GeminiServiceError(
+            ChatServiceError(
                 code="provider_timeout",
                 user_message="La respuesta demoró demasiado.",
                 retryable=True,
@@ -378,7 +383,7 @@ async def test_service_error_is_safe_terminal_sse() -> None:
 async def test_other_service_errors_are_single_safe_terminal_events(
     code: str, retryable: bool
 ) -> None:
-    error = GeminiServiceError(
+    error = ChatServiceError(
         code=cast(Any, code),
         user_message="No fue posible completar la respuesta.",
         retryable=retryable,
@@ -401,7 +406,7 @@ async def test_disconnect_closes_stream_without_terminal_event() -> None:
 
         async def stream(self, **_: object):
             try:
-                yield GeminiTextDelta("texto")
+                yield ChatTextDelta("texto")
             finally:
                 self.closed = True
 
@@ -419,7 +424,7 @@ async def test_disconnect_closes_stream_without_terminal_event() -> None:
         chat_module.log_cancelled = original
     assert service.closed
     assert cancelled
-    assert cancelled[0]["model"] == "gemini-3.5-flash"
+    assert cancelled[0]["model"] == "openai/gpt-oss-120b"
 
 
 @pytest.mark.anyio
@@ -430,18 +435,22 @@ async def test_lifespan_creates_and_closes_only_owned_service(monkeypatch) -> No
         async def aclose(self) -> None:
             closed.append(True)
 
-    owned = SimpleNamespace(client=SimpleNamespace(aio=AsyncClient()))
-    monkeypatch.setattr(main_module, "GeminiService", lambda settings: owned)
+    owned = SimpleNamespace(model=AsyncClient())
+    monkeypatch.setattr(main_module, "open_index", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(main_module, "create_embeddings", lambda _settings: object())
+    monkeypatch.setattr(main_module, "create_chat_model", lambda _settings: object())
+    monkeypatch.setattr(main_module, "RetrievalService", lambda _store: object())
+    monkeypatch.setattr(main_module, "ChatService", lambda *_args, **_kwargs: owned)
     app = create_app(settings=configured_settings())
 
     async with app.router.lifespan_context(app):
-        assert app.state.gemini_service is owned
+        assert app.state.chat_service is owned
 
     assert closed == [True]
 
 
 @pytest.mark.anyio
-async def test_lifespan_loads_owned_corpus_once_without_contacting_gemini(
+async def test_lifespan_loads_owned_corpus_once_without_contacting_provider(
     monkeypatch, tmp_path
 ) -> None:
     from corpus_fixtures import make_corpus_paths
@@ -457,8 +466,8 @@ async def test_lifespan_loads_owned_corpus_once_without_contacting_gemini(
     monkeypatch.setattr(main_module.CorpusService, "load", load)
     monkeypatch.setattr(
         main_module,
-        "GeminiService",
-        lambda _settings: pytest.fail("Gemini was contacted"),
+        "create_chat_model",
+        lambda _settings: pytest.fail("provider was contacted"),
     )
     app = create_app(settings=Settings(), corpus_paths=paths)
 

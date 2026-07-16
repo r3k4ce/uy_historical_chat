@@ -6,6 +6,7 @@ from corpus_fixtures import make_corpus_paths, make_distinct_evidence_paths
 
 from artigas_mvp_backend.corpus_models import LearningTopic
 from artigas_mvp_backend.models import Citation
+from artigas_mvp_backend.prompts import DOCUMENTARY_LIMIT_RESPONSE, RECONSTRUCTION_OPENING
 from artigas_mvp_backend.services.corpus import CorpusService
 from artigas_mvp_backend.services.evidence import (
     CitationAnalysis,
@@ -41,16 +42,14 @@ def test_classifies_documented_reconstruction_limitation_and_conversation() -> N
     assert classify_answer("Una respuesta histórica.", cited) == "documented"
     assert (
         classify_answer(
-            "No conocí ese asunto en mi tiempo. Lo que sigue es una reconstrucción basada en "
-            "los principios documentados en las fuentes disponibles. Aplicaría esos principios.",
+            f"{RECONSTRUCTION_OPENING} Aplicaría esos principios.",
             cited,
         )
         == "contemporary_reconstruction"
     )
     assert (
         classify_answer(
-            "Los documentos disponibles no me permiten responder esa pregunta con suficiente "
-            "rigor.",
+            DOCUMENTARY_LIMIT_RESPONSE,
             cited,
         )
         == "documentary_limitation"
@@ -61,9 +60,8 @@ def test_classifies_documented_reconstruction_limitation_and_conversation() -> N
 @pytest.mark.parametrize(
     "near_miss",
     [
-        "«Los documentos disponibles no me permiten responder esa pregunta con suficiente rigor.»",
-        "Los documentos disponibles no me permiten responder esa pregunta con suficiente rigor. "
-        "Puedo agregar contexto.",
+        f"«{DOCUMENTARY_LIMIT_RESPONSE}»",
+        f"{DOCUMENTARY_LIMIT_RESPONSE} Puedo agregar contexto.",
     ],
 )
 def test_documentary_limit_status_requires_exact_text_not_wrapping_or_appendix(
@@ -75,8 +73,7 @@ def test_documentary_limit_status_requires_exact_text_not_wrapping_or_appendix(
 def test_documentary_limit_status_ignores_outer_whitespace_only() -> None:
     assert (
         classify_answer(
-            " \nLos documentos disponibles no me permiten responder esa pregunta con suficiente "
-            "rigor.\t",
+            f" \n{DOCUMENTARY_LIMIT_RESPONSE}\t",
             [],
         )
         == "documentary_limitation"
@@ -86,34 +83,35 @@ def test_documentary_limit_status_ignores_outer_whitespace_only() -> None:
 @pytest.mark.parametrize(
     "draft",
     [
-        "Los documentos disponibles no me permiten responder esa pregunta con suficiente.",
-        "Los documentos disponibles no me permiten responder esa pregunta con rigor",
-        "Los documentos disponibles no me permiten responder esa pregunta con suficiente rigor",
+        "No me es posible responder esa pregunta con el rigor debido",
+        "No me es posible responder esa pregunta con el rigor",
     ],
 )
 def test_canonicalizes_unmistakable_uncited_documentary_limit_drafts(draft: str) -> None:
-    assert canonicalize_answer_text(draft, []) == (
-        "Los documentos disponibles no me permiten responder esa pregunta con suficiente rigor."
-    )
+    assert canonicalize_answer_text(draft, []) == DOCUMENTARY_LIMIT_RESPONSE
     assert canonicalize_answer_text(draft, [citation(1, page=1)]) == draft
 
 
 def test_does_not_canonicalize_an_uncited_answer_that_continues_with_valid_content() -> None:
     draft = (
-        "Los documentos disponibles no me permiten responder esa pregunta con precisión, "
-        "pero sí puedo explicar el contexto disponible."
+        "No me es posible responder esa pregunta con el rigor debido, "
+        "pero sí puedo explicar un aspecto relacionado."
     )
     assert canonicalize_answer_text(draft, []) == draft
 
 
 def test_canonicalizes_repetitive_uncited_documentary_limit_runaway() -> None:
+    draft = "No me es posible responder esa pregunta con el rigor rigor rigor rigor"
+    assert canonicalize_answer_text(draft, []) == DOCUMENTARY_LIMIT_RESPONSE
+
+
+def test_does_not_canonicalize_valid_prose_with_three_uses_of_rigor() -> None:
     draft = (
-        "Los documentos disponibles no me permiten responder esa pregunta con el rigor "
-        "suficiente rigor con rigor con rigor con rigor"
+        "No me es posible responder esa pregunta con el rigor que merece; el rigor histórico "
+        "exige fuentes, y ese rigor no admite atajos."
     )
-    assert canonicalize_answer_text(draft, []) == (
-        "Los documentos disponibles no me permiten responder esa pregunta con suficiente rigor."
-    )
+
+    assert canonicalize_answer_text(draft, []) == draft
 
 
 def test_prompt_revelation_refusal_is_conversational_even_with_irrelevant_citation() -> None:

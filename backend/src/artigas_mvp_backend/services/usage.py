@@ -41,26 +41,60 @@ def estimate_request_cost(
     output_tokens: int,
     thought_tokens: int,
     cached_input_tokens: int = 0,
+    *,
+    input_price_usd_per_million: Decimal = INPUT_USD_PER_MILLION,
+    cached_input_price_usd_per_million: Decimal | None = CACHED_INPUT_USD_PER_MILLION,
+    output_price_usd_per_million: Decimal = OUTPUT_AND_THOUGHT_USD_PER_MILLION,
 ) -> Decimal:
     uncached = max(input_tokens - cached_input_tokens, 0)
-    input_cost = Decimal(uncached) * INPUT_USD_PER_MILLION / MILLION
-    cached_cost = Decimal(cached_input_tokens) * CACHED_INPUT_USD_PER_MILLION / MILLION
-    output_cost = (
-        Decimal(output_tokens + thought_tokens) * OUTPUT_AND_THOUGHT_USD_PER_MILLION / MILLION
-    )
+    input_cost = Decimal(uncached) * input_price_usd_per_million / MILLION
+    cached_price = cached_input_price_usd_per_million or input_price_usd_per_million
+    cached_cost = Decimal(cached_input_tokens) * cached_price / MILLION
+    output_cost = Decimal(output_tokens + thought_tokens) * output_price_usd_per_million / MILLION
     return input_cost + cached_cost + output_cost
 
 
-def _token_value(usage: object | None, name: str) -> int:
-    value = getattr(usage, name, 0) if usage is not None else 0
-    return max(int(value or 0), 0)
+def _token_value(usage: object | None, *names: str) -> int:
+    value: object = 0
+    for name in names:
+        if isinstance(usage, dict) and name in usage:
+            value = usage[name]
+            break
+        candidate = getattr(usage, name, None) if usage is not None else None
+        if candidate is not None:
+            value = candidate
+            break
+    if not isinstance(value, (int, float, str)):
+        return 0
+    try:
+        return max(int(value), 0)
+    except ValueError:
+        return 0
 
 
-def normalize_usage(provider_usage: object | None) -> NormalizedUsage:
-    input_tokens = _token_value(provider_usage, "total_input_tokens")
-    cached_input_tokens = _token_value(provider_usage, "total_cached_tokens")
-    output_tokens = _token_value(provider_usage, "total_output_tokens")
-    thought_tokens = _token_value(provider_usage, "total_thought_tokens")
+def normalize_usage(
+    provider_usage: object | None,
+    *,
+    input_price_usd_per_million: float | Decimal = INPUT_USD_PER_MILLION,
+    cached_input_price_usd_per_million: float | Decimal = CACHED_INPUT_USD_PER_MILLION,
+    output_price_usd_per_million: float | Decimal = OUTPUT_AND_THOUGHT_USD_PER_MILLION,
+) -> NormalizedUsage:
+    input_tokens = _token_value(provider_usage, "input_tokens", "total_input_tokens")
+    cached_input_tokens = _token_value(provider_usage, "cached_input_tokens", "total_cached_tokens")
+    if not cached_input_tokens and isinstance(provider_usage, dict):
+        cached_input_tokens = _token_value(
+            provider_usage.get("input_token_details"), "cache_read", "cached_tokens"
+        )
+    output_tokens = _token_value(provider_usage, "output_tokens", "total_output_tokens")
+    thought_tokens = _token_value(provider_usage, "thought_tokens", "total_thought_tokens")
+    nested_reasoning = False
+    if not thought_tokens and isinstance(provider_usage, dict):
+        thought_tokens = _token_value(
+            provider_usage.get("output_token_details"), "reasoning", "reasoning_tokens"
+        )
+        nested_reasoning = thought_tokens > 0
+    if nested_reasoning:
+        output_tokens = max(output_tokens - thought_tokens, 0)
     provider_total = _token_value(provider_usage, "total_tokens")
     total_tokens = provider_total or input_tokens + output_tokens + thought_tokens
     return NormalizedUsage(
@@ -70,7 +104,13 @@ def normalize_usage(provider_usage: object | None) -> NormalizedUsage:
         thought_tokens=thought_tokens,
         total_tokens=total_tokens,
         estimated_cost=estimate_request_cost(
-            input_tokens, output_tokens, thought_tokens, cached_input_tokens
+            input_tokens,
+            output_tokens,
+            thought_tokens,
+            cached_input_tokens,
+            input_price_usd_per_million=Decimal(str(input_price_usd_per_million)),
+            cached_input_price_usd_per_million=Decimal(str(cached_input_price_usd_per_million)),
+            output_price_usd_per_million=Decimal(str(output_price_usd_per_million)),
         ),
     )
 

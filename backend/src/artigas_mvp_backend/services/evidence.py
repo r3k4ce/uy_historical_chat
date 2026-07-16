@@ -39,19 +39,17 @@ def canonicalize_answer_text(final_text: str, citations: Sequence[Citation]) -> 
     stripped = final_text.strip()
     normalized = " ".join(stripped.casefold().split())
     malformed_limits = {
-        "los documentos disponibles no me permiten responder esa pregunta con suficiente.",
-        "los documentos disponibles no me permiten responder esa pregunta con rigor",
-        "los documentos disponibles no me permiten responder esa pregunta con suficiente rigor",
+        DOCUMENTARY_LIMIT_RESPONSE.casefold().removesuffix("."),
+        "no me es posible responder esa pregunta con el rigor",
     }
     if not citations and normalized in malformed_limits:
         return DOCUMENTARY_LIMIT_RESPONSE
-    if (
-        not citations
-        and normalized.startswith(
-            "los documentos disponibles no me permiten responder esa pregunta con"
-        )
-        and normalized.count("con rigor") >= 3
-    ):
+    runaway_limit = re.fullmatch(
+        r"no me es posible responder esa pregunta con el rigor(?: debido)?"
+        r"(?:[\s,.;:!?]+rigor(?: debido)?){2,}[.!?]*",
+        normalized,
+    )
+    if not citations and runaway_limit is not None:
         return DOCUMENTARY_LIMIT_RESPONSE
     return final_text
 
