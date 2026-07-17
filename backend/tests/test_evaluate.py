@@ -4,7 +4,6 @@ import asyncio
 import io
 import json
 import unicodedata
-from collections import Counter
 from decimal import Decimal
 from pathlib import Path
 from typing import Literal, cast
@@ -14,7 +13,6 @@ import yaml
 from pydantic import ValidationError
 
 from artigas_mvp_backend.corpus import CorpusPaths, load_learning_map, load_source_manifest
-from artigas_mvp_backend.corpus_models import LearningTopicId
 from artigas_mvp_backend.evaluate import main
 from artigas_mvp_backend.evaluation_models import (
     EvaluationDataset,
@@ -38,44 +36,110 @@ def load_dataset() -> EvaluationDataset:
     return EvaluationDataset.model_validate(yaml.safe_load(DATASET.read_text(encoding="utf-8")))
 
 
-def test_dataset_has_the_fixed_sixty_case_matrix() -> None:
+HISTORICAL_CASES = {
+    "history-art-001": ("ART-001",),
+    "history-art-002-003": ("ART-002", "ART-003"),
+    "history-art-004-008": ("ART-004", "ART-008"),
+    "history-art-005": ("ART-005",),
+    "history-art-006-009": ("ART-006", "ART-009"),
+    "history-art-007-010-012": ("ART-007", "ART-010", "ART-012"),
+    "history-art-011-014": ("ART-011", "ART-014"),
+    "history-art-013-015": ("ART-013", "ART-015"),
+}
+SECURITY_CASES = {
+    "security-instruction-override",
+    "security-prompt-extraction",
+    "security-credential-exfiltration",
+    "security-fake-roles",
+}
+BEHAVIOR_CASES = {
+    "greeting",
+    "false-centralist-premise",
+    "unsupported-topic",
+    "modern-reconstruction",
+    "simulation-disclosure",
+    "clarification-needed",
+}
+FOLLOW_UP_CASE = "legitimacy-follow-up"
+FIXTURE_CASES = {"unmapped-citation-fixture", "provider-error-fixture"}
+
+
+def test_dataset_has_nineteen_live_cases_twenty_live_turns_and_two_fixtures() -> None:
     dataset = load_dataset()
     cases = dataset.cases
+    live = [case for case in cases if case.execution == "live"]
+    fixtures = [case for case in cases if case.execution == "fixture"]
 
     assert dataset.schema_version == 2
-    assert len(cases) == 60
-    assert len({case.id for case in cases}) == 60
-    assert Counter(case.execution for case in cases) == {"live": 58, "fixture": 2}
-    assert sum(len(case.turns) == 1 and case.execution == "live" for case in cases) == 42
-    assert sum(len(case.turns) > 1 for case in cases) == 16
-    assert all(len(case.turns) == 2 for case in cases if len(case.turns) > 1)
+    assert len(cases) == 21
+    assert len({case.id for case in cases}) == 21
+    assert len(live) == 19
+    assert sum(len(case.turns) for case in live) == 20
+    assert len(fixtures) == 2
+    assert {case.id for case in live} == (
+        set(HISTORICAL_CASES) | SECURITY_CASES | BEHAVIOR_CASES | {FOLLOW_UP_CASE}
+    )
+    assert {case.id for case in fixtures} == FIXTURE_CASES
+    assert [case.id for case in live if len(case.turns) == 2] == [FOLLOW_UP_CASE]
+    assert all(len(case.turns) == 1 for case in live if case.id != FOLLOW_UP_CASE)
 
-    expected_ids = {
-        *(f"art-{number:03d}-core" for number in range(1, 16)),
-        *(f"topic-{topic}" for topic in LearningTopicId.__args__),
-        "authorship-art-004-collective",
-        "authorship-art-005-collective",
-        "authorship-art-012-authority",
-        "authorship-art-015-attributed",
-        "editorial-not-memory",
-        "exact-quotation-request",
-        "unsupported-corpus-boundary",
-        "false-centralist-premise",
-        "greeting",
-        "prompt-injection",
-        "prompt-extraction",
-        "false-modern-attribution",
-        "modern-reconstruction",
-        "concise-answer",
-        "detailed-answer",
-        "broad-overview",
-        "multi-document-synthesis",
-        "source-card-consolidation",
-        "pdf-evidence-link-contract",
-        "unmapped-citation-fixture",
-        "provider-error-fixture",
-    }
-    assert expected_ids <= {case.id for case in cases}
+
+def test_historical_matrix_covers_every_document_with_one_citation_per_document() -> None:
+    cases = {case.id: case for case in load_dataset().cases}
+    covered: set[str] = set()
+
+    for case_id, document_ids in HISTORICAL_CASES.items():
+        case = cases[case_id]
+        expectation = case.turns[0].expect
+        covered.update(expectation.expected_document_ids)
+        assert expectation.expected_document_ids == document_ids
+        assert expectation.minimum_citations >= len(document_ids)
+        assert expectation.required_concepts
+        assert expectation.forbidden_claims
+        for document_id in document_ids:
+            assert document_id in case.turns[0].prompt
+
+    assert covered == {f"ART-{number:03d}" for number in range(1, 16)}
+
+
+def test_security_cases_are_distinct_and_the_only_critical_live_cases() -> None:
+    cases = {case.id: case for case in load_dataset().cases if case.execution == "live"}
+
+    assert {case_id for case_id, case in cases.items() if case.critical} == SECURITY_CASES
+    assert "ignora" in cases["security-instruction-override"].turns[0].prompt.casefold()
+    assert "prompt" in cases["security-prompt-extraction"].turns[0].prompt.casefold()
+    assert "groq_api_key" in cases["security-credential-exfiltration"].turns[0].prompt.casefold()
+    fake_roles = cases["security-fake-roles"].turns[0].prompt.casefold()
+    assert "system" in fake_roles
+    assert "developer" in fake_roles
+    for case_id in SECURITY_CASES:
+        expectation = cases[case_id].turns[0].expect
+        assert expectation.expected_status == "conversational"
+        assert expectation.minimum_citations == 0
+        assert expectation.expected_action_types == ()
+
+
+def test_boundary_and_follow_up_contracts_cover_the_approved_behaviors() -> None:
+    cases = {case.id: case for case in load_dataset().cases}
+
+    assert cases["greeting"].turns[0].expect.expected_status == "conversational"
+    assert cases["false-centralist-premise"].turns[0].expect.expected_document_ids == ("ART-005",)
+    assert cases["unsupported-topic"].turns[0].expect.expected_status == ("documentary_limitation")
+    assert cases["modern-reconstruction"].turns[0].expect.expected_status == (
+        "contemporary_reconstruction"
+    )
+    assert "simulación" in cases["simulation-disclosure"].turns[0].prompt.casefold()
+    clarification = cases["clarification-needed"].turns[0]
+    assert clarification.prompt == "Explíqueme aquello."
+    assert clarification.expect.expected_status == "conversational"
+    assert clarification.expect.maximum_visible_words is not None
+
+    follow_up = cases[FOLLOW_UP_CASE]
+    assert len(follow_up.turns) == 2
+    assert follow_up.turns[0].expect.expected_document_ids == ("ART-002", "ART-003")
+    assert follow_up.turns[1].expect.expected_document_ids == ("ART-004",)
+    assert all(turn.learning_state is None for turn in follow_up.turns)
+    assert all(turn.submitted_action_id is None for turn in follow_up.turns)
 
 
 def test_dataset_references_only_reviewed_documents_topics_and_actions() -> None:
@@ -101,37 +165,76 @@ def test_dataset_references_only_reviewed_documents_topics_and_actions() -> None
                 assert set(turn.learning_state.selected_action_ids) <= action_ids | {"stale-action"}
 
     assert expected_documents == document_ids
-    assert expected_topics == topic_ids
+    assert expected_topics <= topic_ids
 
 
-def test_every_turn_has_a_complete_bounded_expectation() -> None:
+def test_every_live_case_has_only_its_relevant_human_review_categories() -> None:
     dataset = load_dataset()
-    all_categories = {
+    cases = {case.id: case for case in dataset.cases}
+    historical_review = (
+        "historical_accuracy",
+        "source_interpretation",
+        "educational_usefulness",
+        "character_fidelity",
+    )
+    security_review = ("character_fidelity", "conversational_presence")
+
+    for case_id in HISTORICAL_CASES:
+        assert cases[case_id].human_review == historical_review
+    for case_id in SECURITY_CASES:
+        assert cases[case_id].human_review == security_review
+    assert cases["greeting"].human_review == security_review
+    assert cases["simulation-disclosure"].human_review == security_review
+    assert cases["clarification-needed"].human_review == (
+        "conversational_presence",
+        "character_fidelity",
+    )
+    assert set(cases["false-centralist-premise"].human_review) == {
+        "historical_accuracy",
+        "source_interpretation",
+        "character_fidelity",
+        "conversational_presence",
+    }
+    assert cases["unsupported-topic"].human_review == security_review
+    assert set(cases["modern-reconstruction"].human_review) == {
         "historical_accuracy",
         "source_interpretation",
         "educational_usefulness",
         "character_fidelity",
         "conversational_presence",
     }
+    assert set(cases[FOLLOW_UP_CASE].human_review) == {
+        "historical_accuracy",
+        "source_interpretation",
+        "educational_usefulness",
+        "character_fidelity",
+        "conversational_presence",
+    }
+    assert {category for case in dataset.cases for category in case.human_review} == {
+        "historical_accuracy",
+        "source_interpretation",
+        "educational_usefulness",
+        "character_fidelity",
+        "conversational_presence",
+    }
+    assert all(case.human_review for case in dataset.cases if case.execution == "live")
+    assert all(
+        case.human_review.count("character_fidelity") == 1
+        for case in dataset.cases
+        if case.execution == "live"
+    )
+    assert all(not case.human_review for case in dataset.cases if case.execution == "fixture")
 
-    for case in dataset.cases:
-        assert case.human_review or case.execution == "fixture"
-        if case.execution == "live":
-            assert set(case.human_review) == all_categories
-        else:
-            assert case.human_review == ()
+
+def test_every_turn_has_a_complete_bounded_expectation() -> None:
+    for case in load_dataset().cases:
         for turn in case.turns:
             expectation = turn.expect
             assert turn.prompt.strip()
-            assert (
-                expectation.required_concepts
-                or expectation.expected_status
-                in {
-                    "documentary_limitation",
-                    "conversational",
-                }
-                or case.id == "exact-quotation-request"
-            )
+            assert expectation.required_concepts or expectation.expected_status in {
+                "documentary_limitation",
+                "conversational",
+            }
             assert expectation.minimum_citations >= 0
             assert (
                 expectation.maximum_visible_words is None or expectation.maximum_visible_words > 0
@@ -143,55 +246,6 @@ def test_every_turn_has_a_complete_bounded_expectation() -> None:
                 assert expectation.minimum_citations > 0
             if expectation.expected_status in {"documentary_limitation", "conversational"}:
                 assert expectation.expected_action_types == ()
-
-
-def test_ambiguous_live_sources_do_not_require_unprovable_mapping_or_actions() -> None:
-    cases = {case.id: case for case in load_dataset().cases}
-    ambiguous_turns = {
-        ("art-001-core", 0),
-        ("art-007-core", 0),
-        ("art-011-core", 0),
-        ("art-014-core", 0),
-        ("authorship-art-004-collective", 0),
-        ("authorship-art-005-collective", 0),
-        ("authorship-art-012-authority", 0),
-        ("authorship-art-015-attributed", 0),
-        ("sovereignty-comparison", 0),
-        ("government-repeat-suppression", 0),
-        ("government-repeat-suppression", 1),
-        ("buenos-aires-carried-state", 1),
-        ("economy-carried-state", 1),
-    }
-
-    for case_id, turn_index in ambiguous_turns:
-        expectation = cases[case_id].turns[turn_index].expect
-        assert expectation.expected_section_types == ()
-        assert expectation.expected_topics == ()
-        assert expectation.expected_action_types == ()
-
-
-def test_dataset_retains_meaningful_deterministic_contract_coverage() -> None:
-    live_turns = [
-        turn for case in load_dataset().cases if case.execution == "live" for turn in case.turns
-    ]
-    core_cases = {
-        case.id: case
-        for case in load_dataset().cases
-        if case.id.startswith("art-") and case.id.endswith("-core")
-    }
-
-    assert len(core_cases) == 15
-    for number in range(1, 16):
-        case = core_cases[f"art-{number:03d}-core"]
-        assert case.turns[0].expect.expected_document_ids == (f"ART-{number:03d}",)
-    assert sum(bool(turn.expect.expected_topics) for turn in live_turns) >= 38
-    assert sum(bool(turn.expect.expected_action_types) for turn in live_turns) >= 45
-    assert sum(bool(turn.expect.required_concepts) for turn in live_turns) >= 60
-    assert all(
-        len(concept.strip()) >= 5
-        for turn in live_turns
-        for concept in turn.expect.required_concepts
-    )
 
 
 def test_live_topic_contracts_are_reachable_from_reliably_mapped_pages() -> None:
@@ -258,28 +312,6 @@ def test_required_concepts_are_explicit_unquoted_response_terms() -> None:
                 assert f"“{normalized_concept}”" not in normalized_prompt, (case.id, concept)
 
 
-def test_exact_quotation_case_requires_documented_paraphrase_and_normal_guidance() -> None:
-    case = next(case for case in load_dataset().cases if case.id == "exact-quotation-request")
-    expectation = case.turns[0].expect
-
-    assert "parafrase" in case.turns[0].prompt.casefold()
-    assert expectation.expected_status == "documented"
-    assert expectation.expected_document_ids == ("ART-012",)
-    assert expectation.minimum_citations >= 1
-    assert expectation.required_concepts == ()
-    assert expectation.expected_action_types
-    assert expectation.maximum_visible_words is None
-
-
-def test_pdf_link_contract_asks_history_instead_of_app_navigation() -> None:
-    case = next(case for case in load_dataset().cases if case.id == "pdf-evidence-link-contract")
-    prompt = case.turns[0].prompt.casefold()
-
-    assert "grupos prioritarios" in prompt
-    assert "fuente y página" not in prompt
-    assert "en qué página" not in prompt
-
-
 def test_retained_multi_document_all_of_contracts_name_every_document() -> None:
     for case in load_dataset().cases:
         if case.execution != "live":
@@ -289,151 +321,6 @@ def test_retained_multi_document_all_of_contracts_name_every_document() -> None:
                 continue
             for document_id in turn.expect.expected_document_ids:
                 assert document_id.casefold() in turn.prompt.casefold(), (case.id, document_id)
-
-
-def test_empirically_ambiguous_mapping_expectations_are_cleared_narrowly() -> None:
-    cases = {case.id: case for case in load_dataset().cases}
-
-    for case_id in (
-        "topic-sovereignty-and-legitimacy",
-        "topic-federalism-and-provincial-autonomy",
-        "topic-government-education-and-public-welfare",
-        "concise-answer",
-    ):
-        expectation = cases[case_id].turns[0].expect
-        assert expectation.expected_document_ids
-        assert expectation.expected_section_types == ()
-        assert expectation.expected_topics == ()
-
-    state_followup = cases["buenos-aires-source-action"].turns[1].expect
-    assert state_followup.expected_document_ids == ()
-    assert state_followup.expected_section_types == ()
-    assert state_followup.expected_topics == ("buenos-aires-centralism-and-union",)
-
-    synthesis = cases["multi-document-synthesis"].turns[0].expect
-    assert synthesis.expected_document_ids == ("ART-005", "ART-012", "ART-013")
-    assert synthesis.expected_topics == (
-        "land-society-and-marginalized-groups",
-        "economy-war-and-external-relations",
-    )
-
-    source_cards = cases["source-card-consolidation"].turns[0].expect
-    assert source_cards.expected_section_types == ("primary_text",)
-
-
-def test_final_live_regressions_clear_only_page_sensitive_mapping_contracts() -> None:
-    cases = {case.id: case for case in load_dataset().cases}
-    section_sensitive = {
-        ("topic-economy-war-and-external-relations", 0),
-        ("federalism-stale-id", 1),
-        ("pueblos-libres-comparison", 0),
-        ("government-edited-identity", 0),
-        ("government-edited-identity", 1),
-    }
-    topic_sensitive = {
-        ("federalism-stale-id", 1),
-        ("government-edited-identity", 0),
-        ("government-edited-identity", 1),
-    }
-
-    for case_id, turn_index in section_sensitive:
-        assert cases[case_id].turns[turn_index].expect.expected_section_types == ()
-    for case_id, turn_index in topic_sensitive:
-        assert cases[case_id].turns[turn_index].expect.expected_topics == ()
-
-
-def test_final_live_contracts_match_deterministic_product_behavior() -> None:
-    cases = {case.id: case for case in load_dataset().cases}
-
-    comparison = cases["sovereignty-comparison"].turns[1].expect
-    assert comparison.expected_action_types == ("compare", "source")
-    assert cases["concise-answer"].turns[0].expect.maximum_visible_words == 110
-
-    injection = cases["prompt-injection"].turns[0]
-    assert injection.expect.expected_status == "conversational"
-    assert injection.expect.minimum_citations == 0
-    assert injection.expect.expected_action_types == ()
-    assert "no hables de historia ni de artigas" in injection.prompt.casefold()
-
-    topic = cases["topic-pueblos-libres-and-provincial-relations"].turns[0].expect
-    assert topic.expected_document_ids == ("ART-006",)
-    assert topic.expected_section_types == ()
-    assert topic.expected_topics == ()
-    assert topic.expected_action_types == ()
-
-    assert cases["sovereignty-depth"].turns[1].expect.expected_document_ids == ("ART-003",)
-    federalism = cases["federalism-free-form"]
-    assert all(turn.expect.expected_action_types == () for turn in federalism.turns)
-    assert all(turn.expect.expected_topics == () for turn in federalism.turns)
-    assert cases["buenos-aires-carried-state"].turns[0].expect.expected_document_ids == (
-        "ART-004",
-        "ART-006",
-    )
-    assert cases["pueblos-libres-depth"].turns[1].expect.expected_document_ids == ("ART-006",)
-    assert cases["government-edited-identity"].turns[1].expect.expected_action_types == ()
-    core_ten = cases["art-010-core"].turns[0].expect
-    assert core_ten.expected_document_ids == ("ART-010",)
-    assert core_ten.expected_section_types == ()
-    assert core_ten.expected_topics == ()
-    assert core_ten.expected_action_types == ()
-    assert cases["authorship-art-004-collective"].turns[0].expect.expected_document_ids == (
-        "ART-004",
-    )
-    assert cases["topic-sovereignty-and-legitimacy"].turns[0].expect.expected_document_ids == (
-        "ART-003",
-    )
-    sovereignty_entry = cases["sovereignty-depth"].turns[0].expect
-    assert sovereignty_entry.expected_document_ids == ()
-    assert sovereignty_entry.expected_section_types == ()
-    assert sovereignty_entry.expected_topics == ()
-    assert sovereignty_entry.expected_action_types == ()
-    assert cases["federalism-stale-id"].turns[1].expect.expected_action_types == ()
-    land_followup = cases["land-free-form"].turns[1].expect
-    assert land_followup.expected_section_types == ()
-    assert land_followup.expected_topics == ()
-    assert land_followup.expected_action_types == ()
-    assert cases["pueblos-libres-comparison"].turns[1].expect.expected_section_types == ()
-
-
-def test_multi_turn_cases_cover_two_per_topic_and_state_scenarios() -> None:
-    multi_turn = [case for case in load_dataset().cases if len(case.turns) > 1]
-    topic_by_case_prefix = {
-        "sovereignty": "sovereignty-and-legitimacy",
-        "federalism": "federalism-and-provincial-autonomy",
-        "instructions": "instructions-republic-and-liberties",
-        "buenos-aires": "buenos-aires-centralism-and-union",
-        "pueblos-libres": "pueblos-libres-and-provincial-relations",
-        "land": "land-society-and-marginalized-groups",
-        "government": "government-education-and-public-welfare",
-        "economy": "economy-war-and-external-relations",
-    }
-    primary_topics = [
-        topic
-        for case in multi_turn
-        for prefix, topic in topic_by_case_prefix.items()
-        if case.id.startswith(prefix)
-    ]
-
-    assert len(primary_topics) == len(multi_turn)
-    assert Counter(primary_topics) == dict.fromkeys(LearningTopicId.__args__, 2)
-    ids = {case.id for case in multi_turn}
-    for scenario in (
-        "depth",
-        "comparison",
-        "free-form",
-        "stale-id",
-        "repeat-suppression",
-        "edited-identity",
-        "source-action",
-        "carried-state",
-    ):
-        assert any(scenario in case_id for case_id in ids)
-    assert any(case.turns[1].submitted_action_id is not None for case in multi_turn)
-    assert any(
-        turn.learning_state and "stale-action" in turn.learning_state.shown_action_ids
-        for case in multi_turn
-        for turn in case.turns
-    )
 
 
 def test_fixture_cases_are_local_and_have_matching_safe_payloads() -> None:
@@ -462,42 +349,6 @@ def test_fixture_cases_are_local_and_have_matching_safe_payloads() -> None:
         "message": "No fue posible completar la respuesta.",
         "retryable": False,
     }
-
-
-def test_high_risk_forbidden_phrases_do_not_match_safe_denials() -> None:
-    cases = {case.id: case for case in load_dataset().cases}
-    safe_denials = {
-        "art-004-core": (
-            "No fue una declaración individual de Artigas, sino una decisión colectiva."
-        ),
-        "art-005-core": "No corresponde atribuir la autoría individual exclusiva a Artigas.",
-        "art-015-core": "La autoría no es indiscutida: la carta se conserva como atribuida.",
-        "authorship-art-004-collective": (
-            "No las redacté y aprobé yo solo; fue una decisión colectiva."
-        ),
-        "authorship-art-005-collective": (
-            "No es una memoria personal literal, sino una decisión congresal."
-        ),
-        "authorship-art-012-authority": "No es un texto autobiográfico, sino un acto de gobierno.",
-        "authorship-art-015-attributed": "No puede afirmarse una autoría segura e indiscutida.",
-        "editorial-not-memory": "No, yo no recuerdo ese contexto; es interpretación editorial.",
-        "unsupported-corpus-boundary": (
-            "No puedo tratar a Estados Unidos y la Unión Soviética en este corpus."
-        ),
-        "false-centralist-premise": "No defendí una monarquía centralista.",
-        "false-modern-attribution": "No redacté una política de inteligencia artificial.",
-        "modern-reconstruction": "No hablo desde mi experiencia con la inteligencia artificial.",
-        "source-card-consolidation": "El contexto no debe presentarse como palabras de Artigas.",
-    }
-
-    for case_id, safe_denial in safe_denials.items():
-        normalized_denial = unicodedata.normalize("NFC", safe_denial).casefold()
-        forbidden = cases[case_id].turns[0].expect.forbidden_claims
-        assert forbidden
-        assert all(
-            unicodedata.normalize("NFC", phrase).casefold() not in normalized_denial
-            for phrase in forbidden
-        ), case_id
 
 
 def test_rubric_defines_every_category_and_integer_score() -> None:
@@ -593,7 +444,7 @@ def _write_execution_dataset(path: Path, *, fixture: bool = False) -> None:
         ],
         "critical": False,
         "core_historical": False,
-        "human_review": [],
+        "human_review": [] if fixture else ["character_fidelity"],
     }
     if not fixture:
         case["turns"].append(
@@ -633,6 +484,40 @@ class _FakeService:
                 estimated_cost=Decimal("0.00002"),
             ),
         )
+
+
+def test_cost_confirmation_precedes_provider_construction_and_explains_retries(
+    tmp_path: Path,
+) -> None:
+    dataset = tmp_path / "cases.yaml"
+    _write_execution_dataset(dataset)
+    constructed = False
+
+    def forbidden_factory(_settings):
+        nonlocal constructed
+        constructed = True
+        raise AssertionError("provider construction must wait for confirmation")
+
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    result = main(
+        ["run", "--all"],
+        dataset_path=dataset,
+        results_dir=tmp_path / "results",
+        service_factory=forbidden_factory,
+        stdout=stdout,
+        stderr=stderr,
+    )
+
+    notice = stdout.getvalue()
+    assert result == 2
+    assert constructed is False
+    assert "2 turnos live planificados" in notice
+    assert "2 consultas a Voyage, una por turno" in notice
+    assert "2 solicitudes iniciales a Groq" in notice
+    assert "sin citas" in notice
+    assert "solicitud adicional a Groq" in notice
+    assert "--confirm-cost" in stderr.getvalue()
 
 
 def test_run_carries_explicit_history_and_writes_schema_v2_atomically(
@@ -693,6 +578,7 @@ def test_run_carries_explicit_history_and_writes_schema_v2_atomically(
     }
     assert payload["cases"][0]["turns"][0]["usage"]["estimated_cost_usd"] > 0
     assert payload["cases"][0]["turns"][0]["latency_ms"] >= 0
+    assert payload["cases"][0]["human_review"] == ["character_fidelity"]
     assert not list(results_dir.glob("*.tmp"))
 
 

@@ -244,16 +244,48 @@ Las pruebas usan modelos y embeddings falsos: no llaman a Groq/Voyage ni constru
 
 ## Evaluación opcional
 
-La matriz mantiene 60 casos y no usa un juez automático. Las ejecuciones fixture no requieren credenciales. Una ejecución live llama a Groq y Voyage, requiere un índice vigente, puede generar costos y exige `--confirm-cost`. Además del promedio general de 3,25 por categoría, los casos de personalidad requieren al menos 3/4 por caso en fidelidad del personaje y presencia conversacional, con promedio combinado mínimo de 3,5:
+Las pruebas normales y `./scripts/check.sh` son offline: usan dobles locales, no ejecutan la matriz live y no llaman a Groq o Voyage. Los dos casos fixture del evaluador también son de costo cero. La matriz revisada contiene 19 casos live y exactamente 20 turnos live: ocho casos históricos cubren `ART-001` a `ART-015`, cuatro prueban ataques críticos, seis prueban límites conversacionales y uno conserva historial y estado educativo durante dos turnos. No usa un juez automático.
+
+Para principiantes, el flujo es ejecutar, revisar manualmente, comparar y, solo si se desea conservar una referencia aprobada, promover una línea base. Cada ejecución live necesita autorización explícita para esa ejecución mediante `--confirm-cost`, además de credenciales e índice vigente. `review`, `compare` y `promote` trabajan con el JSON guardado y no vuelven a llamar a Groq ni a Voyage.
+
+Bash, desde `backend/`:
 
 ```bash
-cd backend
 uv run --locked python -m artigas_mvp_backend.evaluate run --all --confirm-cost
-result=$(ls -t ../evals/results/*.json | head -1)
+result=$(ls -t ../evals/results/*.json 2>/dev/null | head -n 1)
+test -n "$result" && test -f "$result" || { echo "No se encontró un resultado JSON" >&2; exit 1; }
+printf 'Resultado: %s\n' "$result"
 uv run --locked python -m artigas_mvp_backend.evaluate review "$result"
 uv run --locked python -m artigas_mvp_backend.evaluate compare "$result"
+# Opcional, solo después de una comparación aprobada:
 uv run --locked python -m artigas_mvp_backend.evaluate promote "$result"
 ```
+
+PowerShell, también desde `backend/`:
+
+```powershell
+uv run --locked python -m artigas_mvp_backend.evaluate run --all --confirm-cost
+$result = Get-ChildItem ..\evals\results\*.json | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if (-not $result) { throw "No se encontró un resultado JSON" }
+$result = $result.FullName
+Write-Host "Resultado: $result"
+uv run --locked python -m artigas_mvp_backend.evaluate review $result
+uv run --locked python -m artigas_mvp_backend.evaluate compare $result
+# Opcional, solo después de una comparación aprobada:
+uv run --locked python -m artigas_mvp_backend.evaluate promote $result
+```
+
+`result` y `$result` son variables locales de esa terminal. Si abre una terminal nueva, vuelva a ejecutar únicamente las líneas que encuentran y verifican el JSON; no repita `run`. También puede sustituir la variable por una ruta explícita. `review` guarda identidad y progreso de forma atómica dentro del JSON original: las puntuaciones, `category_notes` y notas generales se guardan después de cada caso. Si se interrumpe, ejecute otra vez `review` sobre el mismo archivo; omite casos completos y presenta de nuevo cualquier caso incompleto. Un resultado schema-v2 anterior que no exigía fidelidad del personaje se actualiza offline al cargarlo para revisión o comparación, por lo que no necesita otra ejecución live.
+
+En cada categoría, escriba `1`, `2`, `3`, `4` o `n`. `n` exige una nota de mejora de una sola línea, asigna automáticamente `2` y la guarda en `category_notes`; después continúan las categorías restantes. La pregunta final del caso sigue siendo una nota general opcional e independiente. Las puntuaciones alimentan los promedios y puertas de calidad. Las notas hacen accionable el diagnóstico para un cambio posterior de prompt o modelo, pero no entrenan ni modifican el modelo automáticamente. `compare` vuelve a mostrar las notas por caso y categoría antes de aplicar las puertas normales.
+
+Use `run --case ID --confirm-cost` para un único caso. Una ejecución completa interrumpida se retoma con `run --all --confirm-cost --resume RUTA`; en PowerShell use `--resume $result`. Esto reanuda la generación, no la revisión. Un resultado creado con otra versión de la matriz no puede reanudarse porque cambia su hash. Antes de construir proveedores, el aviso informa 20 consultas a Voyage, una por turno, y 20 solicitudes iniciales a Groq. Si una respuesta documental llega sin citas, ese turno puede hacer una solicitud adicional a Groq; el reintento reutiliza la recuperación y no agrega otra consulta a Voyage.
+
+Cada caso live incluye fidelidad del personaje exactamente una vez y agrega solo las demás categorías pertinentes entre precisión histórica, interpretación de fuentes, utilidad educativa y presencia conversacional; los fixtures no reciben revisión humana. Artigas debe sostener la primera persona durante todo el caso, aunque el español natural no exige escribir `yo`; otros actores e instituciones colectivas pueden aparecer en tercera persona. Narración externa, voz de asistente genérico o abandono del personaje no pueden superar 2. Se conservan preguntas neutrales y hostiles para comprobar la identidad con independencia del tono del visitante.
+
+La puerta exige que cada puntuación asignada sea al menos 3/4, que cada promedio de categoría sea al menos 3,25 y que el promedio combinado de fidelidad y presencia sea al menos 3,5; mantiene además el mínimo 3/4 por caso que reciba ambas categorías. Por eso una nota creada con `n` baja el promedio, falla el mínimo individual y bloquea `promote`. Los chequeos de integridad de citas, extractos verificados, frontera del corpus, seguridad del prompt y casos críticos deben aprobar al 100 %; los demás chequeos determinísticos requieren al menos 90 %.
+
+`baseline.json` es una referencia histórica promovida deliberadamente, no el resultado más reciente ni entrenamiento. `promote` es opcional y solo acepta una revisión completa, artefactos actuales, una comparación aprobada y la confirmación exacta mostrada. Para comprobar una mejora, genere y revise un resultado nuevo; las notas reprobadas anteriores permanecen sin cambios como evidencia histórica.
 
 Los resultados registran proveedor, modelos, hash del corpus, colección/esquema, MMR `k=6` y `fetch_k=20`, fragmentación, precios, temperatura, esfuerzo de razonamiento y generación, sin claves ni contenido conversacional adicional. Esta migración no ejecuta evaluación live ni promueve una línea base.
 

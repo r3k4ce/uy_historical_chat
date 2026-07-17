@@ -129,3 +129,24 @@ entries:
       - "Static combined prompt: 799 words; git diff whitespace validation passed."
       - "Full ./scripts/check.sh: passed; backend 308 tests at 88.80% coverage, frontend 63 tests at 94.43% statement coverage, Ruff, Pyright, TypeScript, ESLint, and Vite build."
       - "No Groq, Voyage, HTTP, index-build, live-evaluation, or other provider call was run."
+  - time_utc: "2026-07-16T22:58:51Z"
+    time_local: "2026-07-16T19:58:51-03:00"
+    summary: "Reduced the reviewed Artigas live evaluation matrix to 20 planned turns."
+    changed:
+      - "Replaced 58 live cases with 19 focused live cases covering all 15 documents, four critical attacks, six behavior boundaries, and one two-turn historical follow-up; retained two offline fixtures and schema v2."
+      - "Added the all-assigned-scores 3/4 minimum gate, accurate Voyage/Groq retry cost messaging, explicit live-eval approval guidance, and beginner evaluation documentation."
+    verification:
+      - "Targeted offline evaluator and documentation suite: 97 passed."
+      - "Full ./scripts/check.sh: passed; backend 306 tests at 88.91% coverage, frontend 63 tests at 94.43% statement coverage, Ruff, Pyright, TypeScript, ESLint, and Vite build."
+      - "No Groq, Voyage, HTTP, index-build, live-evaluation, baseline promotion, staging, or commit was run."
+  - time_utc: "2026-07-17T00:13:25Z"
+    time_local: "2026-07-16T21:13:25-03:00"
+    summary: "Made every live evaluation enforce first-person Artigas fidelity and actionable reviewer notes."
+    changed:
+      - "Required character fidelity exactly once for all live cases, upgraded older schema-v2 results offline for review and comparison, and strengthened the first-person rubric."
+      - "Added category-level improvement notes that assign score 2, validate safely, appear in comparison output, feed normal quality gates, and block promotion."
+      - "Documented Bash and PowerShell result discovery, resumable review, comparison, optional promotion, persistence, thresholds, note purpose, and baselines."
+    verification:
+      - "Targeted offline evaluator and documentation suite: 77 passed."
+      - "Full ./scripts/check.sh: passed; backend 316 tests at 89.16% coverage, frontend 63 tests at 94.43% statement coverage, Ruff, Pyright, TypeScript, ESLint, and Vite build."
+      - "No Groq, Voyage, HTTP, index-build, live-evaluation, baseline promotion, staging, commit, or push was run."

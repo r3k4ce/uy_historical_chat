@@ -11,7 +11,7 @@ from typing import Any, Literal, cast
 from pydantic import BaseModel, ConfigDict
 
 from artigas_mvp_backend.corpus_models import LearningTopicId, TopicDepth
-from artigas_mvp_backend.evaluation_models import TurnExpectation
+from artigas_mvp_backend.evaluation_models import TurnExpectation, category_notes_are_valid
 from artigas_mvp_backend.models import CompleteEventData, LearningState
 from artigas_mvp_backend.prompts import (
     ARTIGAS_PROFILE,
@@ -718,6 +718,7 @@ def evaluate_quality_gate(
 
     scores_by_category: dict[str, list[int]] = defaultdict(list)
     complete_scores = True
+    human_score_failures: list[str] = []
     core_score_one: list[str] = []
     personality_score_failures: list[str] = []
     personality_scores: list[int] = []
@@ -729,12 +730,19 @@ def evaluate_quality_gate(
         case_id = case.get("id", "unknown")
         reviewed = review_cases.get(case_id, {}) if isinstance(review_cases, dict) else {}
         scores = reviewed.get("scores", {}) if isinstance(reviewed, dict) else {}
+        category_notes = reviewed.get("category_notes") if isinstance(reviewed, dict) else None
+        if not isinstance(scores, dict) or set(scores) != set(required):
+            complete_scores = False
+        if not category_notes_are_valid(category_notes, required, scores):
+            complete_scores = False
         for category in required:
             score = scores.get(category) if isinstance(scores, dict) else None
             if not isinstance(score, int) or isinstance(score, bool) or not 1 <= score <= 4:
                 complete_scores = False
                 continue
             scores_by_category[category].append(score)
+            if score < 3:
+                human_score_failures.append(f"{case_id}:{category}")
             if case.get("core_historical") and score == 1:
                 core_score_one.append(f"{case_id}:{category}")
         if set(_PERSONALITY_CATEGORIES) <= set(required):
@@ -776,6 +784,16 @@ def evaluate_quality_gate(
                     for category, average in sorted(category_averages.items())
                 )
                 or "No rubric scores found.",
+            ),
+            QualityGateRule(
+                id="human-score-minimums",
+                passed=bool(scores_by_category) and not human_score_failures,
+                detail=(
+                    "Every assigned human-review score is at least 3."
+                    if scores_by_category and not human_score_failures
+                    else "Human-review scores below 3: "
+                    + (", ".join(human_score_failures) or "scores missing")
+                ),
             ),
             QualityGateRule(
                 id="personality-case-minimums",

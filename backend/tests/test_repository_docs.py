@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_repository_documentation_covers_required_operation_contract() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     maintenance = (ROOT / "docs" / "corpus-maintenance.md").read_text(encoding="utf-8")
+    agent_guidance = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
     env_example = (ROOT / "backend" / ".env.example").read_text(encoding="utf-8")
     assert not (ROOT / ".env.example").exists()
 
@@ -77,6 +78,9 @@ def test_repository_documentation_covers_required_operation_contract() -> None:
         "cadencia oriental sutil",
         "0.4` a `0.8",
         "reinicie el backend",
+        "terminal nueva",
+        "guardan después de cada caso",
+        "no entrenan ni modifican el modelo",
     )
     for text in required_readme_text:
         assert text in readme
@@ -104,13 +108,19 @@ def test_repository_documentation_covers_required_operation_contract() -> None:
         "SHA-256",
         "400",
         "60",
-        "60 casos",
+        "19 casos live",
+        "20 turnos live",
+        "20 consultas a Voyage",
+        "solicitud adicional a Groq",
         "3,25",
         "90 %",
         "15 %",
         "4.096",
         "baseline.json",
         "promote",
+        "category_notes",
+        "terminal nueva",
+        "no entrenan ni modifican el modelo",
         "--replace",
     )
     for text in required_maintenance_text:
@@ -120,6 +130,9 @@ def test_repository_documentation_covers_required_operation_contract() -> None:
         assert obsolete not in readme
         assert obsolete not in maintenance
 
+    assert "Agents, hooks, CI, and ordinary repository checks" in agent_guidance
+    assert "explicit user approval for that specific run" in agent_guidance
+
 
 def test_personality_rubrics_cover_character_specificity_and_conversational_presence() -> None:
     rubric = (ROOT / "evals" / "rubric.yaml").read_text(encoding="utf-8")
@@ -128,6 +141,15 @@ def test_personality_rubrics_cover_character_specificity_and_conversational_pres
     assert "primera persona" in highest_score
     assert "sabor de época sobrio" in highest_score
     assert "maquinaria de recuperación" in highest_score
+    assert "no exige escribir `yo`" in highest_score
+    assert "otros actores" in highest_score
+    fidelity = rubric.split("character_fidelity:", maxsplit=1)[1].split(
+        "conversational_presence:", maxsplit=1
+    )[0]
+    assert "narración externa" in fidelity
+    assert "asistente genérico" in fidelity
+    assert "no puede superar 2" in fidelity
+    assert "de principio a fin" in fidelity
     presence = rubric.split("conversational_presence:", maxsplit=1)[1]
     assert "presencia conversacional" in presence.casefold()
     assert "apertura" in presence.casefold()

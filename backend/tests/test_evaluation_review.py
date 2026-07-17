@@ -359,6 +359,69 @@ def test_review_repairs_partial_case_and_unacknowledged_performance(tmp_path: Pa
     assert saved["performance"]["acknowledged"] is True
 
 
+def test_review_upgrades_older_live_results_with_character_fidelity(tmp_path: Path) -> None:
+    path = tmp_path / "older.json"
+    case = _case("case", human_review=["historical_accuracy"])
+    payload = _result(case)
+    payload["review"] = {
+        "reviewer": "Codex",
+        "cases": {
+            "case": {
+                "scores": {"historical_accuracy": 4},
+                "notes": "Revisión anterior.",
+                "reviewed_at": "2026-07-15T00:00:00Z",
+            }
+        },
+    }
+    _write(path, payload)
+
+    review_result(
+        path,
+        stdin=io.StringIO("4\n4\nRevisado de nuevo.\ns\nSin observaciones.\n"),
+        stdout=io.StringIO(),
+    )
+
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    assert saved["cases"][0]["human_review"] == [
+        "historical_accuracy",
+        "character_fidelity",
+    ]
+    assert saved["review"]["cases"]["case"]["scores"] == {
+        "historical_accuracy": 4,
+        "character_fidelity": 4,
+    }
+
+
+def test_review_n_requires_note_assigns_two_and_keeps_general_notes(tmp_path: Path) -> None:
+    path = tmp_path / "notes.json"
+    _write(
+        path,
+        _result(
+            _case(
+                "case",
+                human_review=["historical_accuracy", "character_fidelity"],
+            )
+        ),
+    )
+    output = io.StringIO()
+
+    review_result(
+        path,
+        stdin=io.StringIO(
+            "Codex\nn\n\nConfundió el alcance de la fuente.\n"
+            "4\nNota general.\ns\nSin observaciones.\n"
+        ),
+        stdout=output,
+    )
+
+    saved = json.loads(path.read_text(encoding="utf-8"))["review"]["cases"]["case"]
+    assert saved["scores"] == {"historical_accuracy": 2, "character_fidelity": 4}
+    assert saved["category_notes"] == {"historical_accuracy": "Confundió el alcance de la fuente."}
+    assert saved["notes"] == "Nota general."
+    assert "La explicación no puede estar vacía." in output.getvalue()
+    assert "character_fidelity" in output.getvalue()
+
+
 def test_nearest_rank_and_review_performance_summary(tmp_path: Path) -> None:
     assert nearest_rank_percentile([1, 2, 3, 100], 0.95) == 100
     assert nearest_rank_percentile([4, 1, 3, 2], 0.5) == 2
@@ -435,6 +498,7 @@ def test_compare_reports_every_gate_and_is_read_only(tmp_path: Path) -> None:
         "prompt-safety",
         "remaining-deterministic",
         "rubric-category-averages",
+        "human-score-minimums",
         "personality-case-minimums",
         "personality-dimensions-average",
         "core-historical-no-score-one",
@@ -456,6 +520,7 @@ def test_compare_reports_every_gate_and_is_read_only(tmp_path: Path) -> None:
         ("critical-group", "citation-integrity"),
         ("remaining-rate", "remaining-deterministic"),
         ("category-average", "rubric-category-averages"),
+        ("human-score-minimum", "human-score-minimums"),
         ("personality-minimum", "personality-case-minimums"),
         ("personality-average", "personality-dimensions-average"),
         ("core-one", "core-historical-no-score-one"),
@@ -485,6 +550,8 @@ def test_compare_enforces_each_quality_failure(
         checks[-2]["passed"] = False
     elif mutation == "category-average":
         payload["review"]["cases"]["case"]["scores"]["historical_accuracy"] = 3  # type: ignore[index]
+    elif mutation == "human-score-minimum":
+        payload["review"]["cases"]["case"]["scores"]["educational_usefulness"] = 2  # type: ignore[index]
     elif mutation == "personality-minimum":
         payload["review"]["cases"]["case"]["scores"]["conversational_presence"] = 2  # type: ignore[index]
     elif mutation == "personality-average":
@@ -509,6 +576,114 @@ def test_compare_enforces_each_quality_failure(
 
     assert report.passed is False
     assert next(rule for rule in report.rules if rule.id == failed_rule).passed is False
+
+
+def test_compare_requires_every_assigned_human_score_to_be_at_least_three(
+    tmp_path: Path,
+) -> None:
+    cases = [_case(f"case-{number}") for number in range(4)]
+    payload = _reviewed_result(*cases)
+    payload["review"]["cases"]["case-0"]["scores"]["educational_usefulness"] = 2  # type: ignore[index]
+    path = tmp_path / "human-minimum.json"
+    _write(path, payload)
+    expected_case_ids = tuple(cast(str, case["id"]) for case in cases)
+
+    report = compare_result(
+        path,
+        stdout=io.StringIO(),
+        expected_case_ids=expected_case_ids,
+    )
+
+    minimum = next(rule for rule in report.rules if rule.id == "human-score-minimums")
+    assert minimum.passed is False
+    assert "case-0:educational_usefulness" in minimum.detail
+    assert next(rule for rule in report.rules if rule.id == "rubric-category-averages").passed
+    assert next(rule for rule in report.rules if rule.id == "personality-case-minimums").passed
+    assert next(rule for rule in report.rules if rule.id == "personality-dimensions-average").passed
+
+    payload["review"]["cases"]["case-0"]["scores"]["educational_usefulness"] = 3  # type: ignore[index]
+    _write(path, payload)
+    passing = compare_result(
+        path,
+        stdout=io.StringIO(),
+        expected_case_ids=expected_case_ids,
+    )
+    assert next(rule for rule in passing.rules if rule.id == "human-score-minimums").passed
+
+
+def test_compare_prints_sanitized_category_notes_and_applies_normal_gates(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "noted.json"
+    payload = _reviewed_result(_case("case"))
+    payload["review"]["cases"]["case"]["scores"]["character_fidelity"] = 2  # type: ignore[index]
+    payload["review"]["cases"]["case"]["category_notes"] = {  # type: ignore[index]
+        "character_fidelity": "\x1b[2JRespondió como narrador externo."
+    }
+    _write(path, payload)
+    output = io.StringIO()
+
+    report = compare_result(path, stdout=output, expected_case_ids=("case",))
+
+    text = output.getvalue()
+    assert report.passed is False
+    assert "Notas de mejora" in text
+    assert "case [character_fidelity]: Respondió como narrador externo." in text
+    assert "\x1b" not in text
+    assert next(rule for rule in report.rules if rule.id == "human-score-minimums").passed is False
+    assert (
+        next(rule for rule in report.rules if rule.id == "rubric-category-averages").passed is False
+    )
+
+
+@pytest.mark.parametrize(
+    "category_notes",
+    [
+        {"character_fidelity": "   "},
+        {"unrelated": "Mejorar la respuesta."},
+        {"character_fidelity": "Primera línea.\nSegunda línea."},
+    ],
+)
+def test_compare_treats_malformed_category_notes_as_incomplete(
+    tmp_path: Path, category_notes: dict[str, str]
+) -> None:
+    path = tmp_path / "malformed-notes.json"
+    payload = _reviewed_result(_case("case"))
+    payload["review"]["cases"]["case"]["category_notes"] = category_notes  # type: ignore[index]
+    _write(path, payload)
+
+    report = compare_result(path, stdout=io.StringIO(), expected_case_ids=("case",))
+
+    assert next(rule for rule in report.rules if rule.id == "human-scores-complete").passed is False
+
+
+def test_compare_requires_category_notes_to_correspond_to_score_two(tmp_path: Path) -> None:
+    path = tmp_path / "wrong-note-score.json"
+    payload = _reviewed_result(_case("case"))
+    payload["review"]["cases"]["case"]["category_notes"] = {  # type: ignore[index]
+        "character_fidelity": "Debe sostener la primera persona."
+    }
+    _write(path, payload)
+
+    report = compare_result(path, stdout=io.StringIO(), expected_case_ids=("case",))
+
+    assert next(rule for rule in report.rules if rule.id == "human-scores-complete").passed is False
+
+
+def test_compare_rejects_unicode_line_separator_in_category_note(tmp_path: Path) -> None:
+    path = tmp_path / "multiline-note.json"
+    payload = _reviewed_result(_case("case"))
+    payload["review"]["cases"]["case"]["scores"]["character_fidelity"] = 2  # type: ignore[index]
+    payload["review"]["cases"]["case"]["category_notes"] = {  # type: ignore[index]
+        "character_fidelity": "Primera línea.\u2028Segunda línea."
+    }
+    _write(path, payload)
+    output = io.StringIO()
+
+    report = compare_result(path, stdout=output, expected_case_ids=("case",))
+
+    assert next(rule for rule in report.rules if rule.id == "human-scores-complete").passed is False
+    assert "Notas de mejora" not in output.getvalue()
 
 
 def test_compare_requires_explanations_for_p95_regressions_above_fifteen_percent(

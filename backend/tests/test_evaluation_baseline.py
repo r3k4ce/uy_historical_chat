@@ -203,6 +203,47 @@ def test_promotion_refuses_unqualified_results(tmp_path: Path, mutation: str) ->
     assert not (tmp_path / "baseline.json").exists()
 
 
+def test_promotion_rejects_category_note_without_a_score_of_two(tmp_path: Path) -> None:
+    artifacts = _artifacts(tmp_path)
+    result = tmp_path / "result.json"
+    payload = _result(result, artifacts)
+    payload["review"]["cases"]["complete-case"]["category_notes"] = {  # type: ignore[index]
+        "historical_accuracy": "Debe corregir la interpretación."
+    }
+    result.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(EvaluationBaselineError, match="revisión humana"):
+        promote_result(
+            result,
+            baseline_path=tmp_path / "baseline.json",
+            artifacts=artifacts,
+            settings=Settings(),
+            stdin=io.StringIO("unused\n"),
+            stdout=io.StringIO(),
+            gate_evaluator=lambda *_args, **_kwargs: _passing_report(),
+        )
+
+
+def test_promotion_translates_invalid_result_from_comparison(tmp_path: Path) -> None:
+    artifacts = _artifacts(tmp_path)
+    result = tmp_path / "result.json"
+    payload = _result(result, artifacts)
+    case = payload["cases"][0]  # type: ignore[index]
+    case["human_review"] = ["historical_accuracy", "historical_accuracy"]
+    case["turns"][0]["error"] = {"code": "provider_error"}
+    result.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(EvaluationBaselineError, match=r"resultado.*inválido"):
+        promote_result(
+            result,
+            baseline_path=tmp_path / "baseline.json",
+            artifacts=artifacts,
+            settings=Settings(),
+            stdin=io.StringIO("unused\n"),
+            stdout=io.StringIO(),
+        )
+
+
 def test_promotion_refuses_partial_case_set_and_wrong_confirmation(tmp_path: Path) -> None:
     artifacts = _artifacts(tmp_path)
     result = tmp_path / "result.json"

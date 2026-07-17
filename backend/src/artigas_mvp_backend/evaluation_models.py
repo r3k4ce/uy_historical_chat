@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -15,6 +16,28 @@ RubricCategory = Literal[
     "conversational_presence",
 ]
 EvaluationActionType = Literal["deepen", "compare", "source"]
+
+
+def category_notes_are_valid(
+    notes: object,
+    categories: Sequence[str],
+    scores: object,
+) -> bool:
+    if notes is None:
+        return True
+    return bool(
+        isinstance(notes, dict)
+        and isinstance(scores, dict)
+        and all(
+            isinstance(category, str)
+            and category in categories
+            and isinstance(note, str)
+            and bool(note.strip())
+            and note.splitlines() == [note]
+            and scores.get(category) == 2
+            for category, note in notes.items()
+        )
+    )
 
 
 class TurnExpectation(BaseModel):
@@ -57,6 +80,12 @@ class EvaluationCase(BaseModel):
             raise ValueError("fixture cases require fixture_file")
         if self.execution == "live" and self.fixture_file is not None:
             raise ValueError("live cases cannot reference a fixture_file")
+        if len(self.human_review) != len(set(self.human_review)):
+            raise ValueError("human review categories must be unique")
+        if self.execution == "fixture" and self.human_review:
+            raise ValueError("fixture cases cannot require human review")
+        if self.execution == "live" and self.human_review.count("character_fidelity") != 1:
+            raise ValueError("live cases require character_fidelity exactly once")
         return self
 
 

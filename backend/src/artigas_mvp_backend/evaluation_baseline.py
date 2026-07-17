@@ -16,6 +16,7 @@ import yaml
 
 from artigas_mvp_backend.config import Settings
 from artigas_mvp_backend.corpus import CorpusPaths, sha256_file
+from artigas_mvp_backend.evaluation_models import category_notes_are_valid
 from artigas_mvp_backend.index_corpus import (
     CHUNK_OVERLAP,
     CHUNK_SIZE,
@@ -175,6 +176,7 @@ def _assert_complete_review(payload: dict[str, Any]) -> tuple[str, dict[str, Any
             continue
         entry = reviewed_cases.get(case.get("id"))
         scores = entry.get("scores") if isinstance(entry, dict) else None
+        category_notes = entry.get("category_notes") if isinstance(entry, dict) else None
         if (
             not isinstance(scores, dict)
             or set(scores) != set(categories)
@@ -182,6 +184,7 @@ def _assert_complete_review(payload: dict[str, Any]) -> tuple[str, dict[str, Any
                 not isinstance(score, int) or isinstance(score, bool) or not 1 <= score <= 4
                 for score in scores.values()
             )
+            or not category_notes_are_valid(category_notes, categories, scores)
         ):
             raise EvaluationBaselineError("La revisión humana está incompleta.")
     return reviewer.strip(), reviewed_cases
@@ -328,11 +331,18 @@ def promote_result(
 
     baseline_sha256 = _assert_replaceable_baseline(baseline_path)
 
+    from artigas_mvp_backend.evaluation_review import EvaluationReviewError
+
     if gate_evaluator is None:
         from artigas_mvp_backend.evaluation_review import compare_result
 
         gate_evaluator = compare_result
-    report = gate_evaluator(result_path, stdout=stdout, baseline_path=baseline_path)
+    try:
+        report = gate_evaluator(result_path, stdout=stdout, baseline_path=baseline_path)
+    except EvaluationReviewError as exc:
+        raise EvaluationBaselineError(
+            "El resultado de evaluación es inválido para la comparación."
+        ) from exc
     if not report.passed:
         raise EvaluationBaselineError("El resultado no supera la puerta formal de calidad.")
 

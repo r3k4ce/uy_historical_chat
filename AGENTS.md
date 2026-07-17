@@ -56,6 +56,12 @@ Ask focused questions when the goal, success criteria, UX, data shape, behavior 
 * Update `.env.example` with placeholder names when new environment variables are required.
 * Keep real secret values out of the repo.
 
+## Live Evaluation Safety
+
+* Agents, hooks, CI, and ordinary repository checks must not run live Groq/Voyage evaluations without explicit user approval for that specific run.
+* Offline unit tests and evaluator fixtures may run without provider approval.
+* Do not treat `--confirm-cost` in documentation or scripts as standing authorization for a live run.
+
 ## Git
 
 * Do not stage or commit.

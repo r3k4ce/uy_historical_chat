@@ -26,6 +26,7 @@ from artigas_mvp_backend.evaluation_models import (
     HumanRubric,
     RubricCategoryDefinition,
     TurnExpectation,
+    category_notes_are_valid,
 )
 from artigas_mvp_backend.models import CompleteEventData, LearningState
 from artigas_mvp_backend.services.corpus import CorpusService
@@ -74,12 +75,14 @@ def _load_result(path: Path) -> dict[str, Any]:
         "conversational_presence",
     }
     for case in cases:
+        human_review = case.get("human_review") if isinstance(case, dict) else None
         if (
             not isinstance(case, dict)
             or not isinstance(case.get("id"), str)
+            or case.get("execution") not in {"live", "fixture"}
             or not isinstance(case.get("turns"), list)
             or not case["turns"]
-            or not isinstance(case.get("human_review"), list)
+            or not isinstance(human_review, list)
             or not isinstance(case.get("operational_errors"), list)
             or any(
                 not isinstance(turn, dict)
@@ -87,9 +90,13 @@ def _load_result(path: Path) -> dict[str, Any]:
                 or (not isinstance(turn.get("completion"), dict) and not turn.get("error"))
                 for turn in case.get("turns", [])
             )
-            or not set(case.get("human_review", [])) <= allowed_categories
+            or not set(human_review) <= allowed_categories
+            or len(human_review) != len(set(human_review))
+            or (case.get("execution") == "fixture" and bool(human_review))
         ):
             raise EvaluationReviewError("El resultado de evaluación contiene un caso incompleto.")
+        if case["execution"] == "live" and "character_fidelity" not in human_review:
+            human_review.append("character_fidelity")
         ids.append(case["id"])
     if len(ids) != len(set(ids)):
         raise EvaluationReviewError("El resultado de evaluación contiene casos duplicados.")
@@ -164,15 +171,18 @@ def _score(
     stdout: TextIO,
     title: str,
     definition: RubricCategoryDefinition,
-) -> int:
+) -> tuple[int, str | None]:
     print(f"\n{definition.title}", file=stdout)
     for value in (1, 2, 3, 4):
         print(f"  {value}: {definition.scores[value]}", file=stdout)
     while True:
-        value = _read(stdin, stdout, f"{title} (1..4):")
+        value = _read(stdin, stdout, f"{title} (1..4 o n):").strip().casefold()
         if value in {"1", "2", "3", "4"}:
-            return int(value)
-        print("Ingrese un número entre 1 y 4.", file=stdout)
+            return int(value), None
+        if value == "n":
+            note = _required_text(stdin, stdout, "Nota de mejora obligatoria (una línea):")
+            return 2, note
+        print("Ingrese un número entre 1 y 4 o n.", file=stdout)
 
 
 def _acknowledgement(stdin: TextIO, stdout: TextIO) -> bool:
@@ -314,6 +324,7 @@ def _case_review_is_complete(entry: object, categories: list[str]) -> bool:
         and isinstance(entry.get("notes"), str)
         and isinstance(entry.get("reviewed_at"), str)
         and bool(entry["reviewed_at"].strip())
+        and category_notes_are_valid(entry.get("category_notes"), categories, scores)
     )
 
 
@@ -390,16 +401,22 @@ def review_result(
             continue
         reviewed_cases.pop(case["id"], None)
         _display_case(case, stdout)
-        scores = {
-            category: _score(stdin, stdout, category, rubric.categories[category])
-            for category in categories
-        }
+        scores: dict[str, int] = {}
+        category_notes: dict[str, str] = {}
+        for category in categories:
+            score, category_note = _score(stdin, stdout, category, rubric.categories[category])
+            scores[category] = score
+            if category_note is not None:
+                category_notes[category] = category_note
         notes = _read(stdin, stdout, "Notas opcionales (Enter para omitir):")
-        reviewed_cases[case["id"]] = {
+        case_review = {
             "scores": scores,
             "notes": notes,
             "reviewed_at": now().astimezone(UTC).isoformat().replace("+00:00", "Z"),
         }
+        if category_notes:
+            case_review["category_notes"] = category_notes
+        reviewed_cases[case["id"]] = case_review
         _atomic_write_json(path, payload)
 
     metrics = _metrics(payload)
@@ -454,6 +471,7 @@ def compare_result(
         deterministic_checks_complete=deterministic_checks_complete,
         case_matrix_complete=actual_ids == expected_ids,
     )
+    _print_category_notes(payload, stdout)
     for rule in report.rules:
         print(f"[{'PASS' if rule.passed else 'FAIL'}] {rule.id}: {rule.detail}", file=stdout)
     if report.provider_errors:
@@ -465,6 +483,28 @@ def compare_result(
         file=stdout,
     )
     return report
+
+
+def _print_category_notes(payload: dict[str, Any], stdout: TextIO) -> None:
+    review = payload.get("review", {})
+    reviewed_cases = review.get("cases", {}) if isinstance(review, dict) else {}
+    lines: list[str] = []
+    for case in payload["cases"]:
+        case_id = case.get("id")
+        entry = reviewed_cases.get(case_id, {}) if isinstance(reviewed_cases, dict) else {}
+        scores = entry.get("scores") if isinstance(entry, dict) else None
+        notes = entry.get("category_notes") if isinstance(entry, dict) else None
+        categories = case.get("human_review", [])
+        if not category_notes_are_valid(notes, categories, scores) or not isinstance(notes, dict):
+            continue
+        for category, note in notes.items():
+            lines.append(
+                f"- {_terminal_text(case_id)} [{_terminal_text(category)}]: {_terminal_text(note)}"
+            )
+    if lines:
+        print("Notas de mejora:", file=stdout)
+        for line in lines:
+            print(line, file=stdout)
 
 
 def _check_signature(check: object) -> tuple[object, ...] | None:

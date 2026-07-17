@@ -51,8 +51,8 @@ DEFAULT_RESULTS_DIR = REPOSITORY_ROOT / "evals" / "results"
 DEFAULT_BASELINE = REPOSITORY_ROOT / "evals" / "baseline.json"
 
 _LEGACY_CASE_ALIASES = {
-    "instructions-xiii": "art-005-core",
-    "art-005-instructions": "art-005-core",
+    "instructions-xiii": "history-art-005",
+    "art-005-instructions": "history-art-005",
 }
 
 
@@ -319,10 +319,18 @@ async def _execute_case(
 
 
 def _print_cost_notice(call_count: int, settings: Settings, stdout: TextIO) -> None:
-    noun = "llamada" if call_count == 1 else "llamadas"
-    adjective = "real" if call_count == 1 else "reales"
+    turn_noun = "turno live planificado" if call_count == 1 else "turnos live planificados"
+    voyage_noun = "consulta" if call_count == 1 else "consultas"
+    groq_noun = "solicitud inicial" if call_count == 1 else "solicitudes iniciales"
     print(
-        f"Se realizarán {call_count} {noun} {adjective} al modelo, una por turno live.",
+        f"Se ejecutarán {call_count} {turn_noun}.",
+        file=stdout,
+    )
+    print(f"Se harán {call_count} {voyage_noun} a Voyage, una por turno.", file=stdout)
+    print(f"Se harán {call_count} {groq_noun} a Groq, una por turno.", file=stdout)
+    print(
+        "Una respuesta documental sin citas puede generar una solicitud adicional a Groq "
+        "para ese turno; el reintento no agrega otra consulta a Voyage.",
         file=stdout,
     )
     formatted_output_tokens = f"{settings.chat_max_output_tokens:,}".replace(",", ".")
@@ -335,11 +343,6 @@ def _print_cost_notice(call_count: int, settings: Settings, stdout: TextIO) -> N
         "Precios por millón de tokens (USD): "
         f"entrada {settings.input_price_usd_per_million}, "
         f"salida {settings.output_price_usd_per_million}.",
-        file=stdout,
-    )
-    print(
-        "La recuperación local no agrega llamadas al modelo de chat; la consulta de "
-        "embeddings puede tener un costo adicional.",
         file=stdout,
     )
 
